@@ -1,0 +1,61 @@
+spring:
+  application:
+    name: cliniqo-api
+  datasource:
+    url: ${DATABASE_URL:jdbc:postgresql://localhost:5432/cliniqo}
+    username: ${DATABASE_USERNAME:cliniqo}
+    password: ${DATABASE_PASSWORD:cliniqo}
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        format_sql: false
+  flyway:
+    enabled: true
+
+server:
+  port: ${PORT:8080}
+
+cliniqo:
+  security:
+    jwt-secret: ${JWT_SECRET:change-this-local-development-secret-change-me}
+    access-token-minutes: ${ACCESS_TOKEN_MINUTES:15}
+    refresh-token-days: ${REFRESH_TOKEN_DAYS:30}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+
+---
+spring:
+  config:
+    activate:
+      on-profile: test
+  datasource:
+    url: jdbc:tc:postgresql:15:///cliniqo_test
+    driver-class-name: org.testcontainers.jdbc.ContainerDatabaseDriver
+    username: test
+    password: test
+
+---
+spring:
+  config:
+    activate:
+      on-profile: local
+logging:
+  level:
+    com.cliniqo: DEBUG
+
+---
+spring:
+  config:
+    activate:
+      on-profile: prod
+logging:
+  level:
+    com.cliniqo: INFO
+    org.springframework.security: WARN

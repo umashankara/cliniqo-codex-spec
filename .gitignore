@@ -2,3 +2,14 @@
 *.log
 .env
 .env.*
+target/
+*.class
+*.jar
+.gradle/
+build/
+out/
+.idea/
+.vscode/
+*.tmp
+*.swp
+Thumbs.db

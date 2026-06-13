@@ -60,6 +60,34 @@ scheduled jobs.
   not be logged in plain text.
 - Use soft delete for business records. Purge is SUPER_ADMIN-only and audited.
 
+## Frontend Application Requirements
+
+When a feature includes frontend scope, implement it in the React, TypeScript,
+TailwindCSS, and Vite application unless explicitly excluded.
+
+- Provide an authenticated clinic staff app with protected routes, refresh-token
+  handling, logout, forced password reset, and role-aware redirects.
+- Provide a SUPER_ADMIN app area separated from clinic-scoped routes.
+- Use server-driven navigation and permissions from the backend; do not hardcode
+  access decisions only in the frontend.
+- Use a shared API client that understands the global API envelope, typed
+  validation errors, request IDs, authentication failures, and tenant-safe 404s.
+- Build reusable UI primitives for tables, filters, forms, modals, drawers,
+  status pills, source badges, date/time inputs, pagination, empty states,
+  loading states, error states, and confirmation dialogs.
+- Match backend validation rules in frontend forms and still rely on backend
+  validation as the source of truth.
+- Never place `clinicId` in clinic-user request bodies or frontend state used as
+  authority. Clinic context comes from the authenticated session.
+- Keep PHI out of browser logs, analytics, local storage, and error messages.
+- Clinic staff pages should be dense, accessible, keyboard-friendly, and
+  optimized for repeated daily operations on desktop and tablet.
+- Public booking pages should be mobile-first, unauthenticated, SEO-friendly,
+  privacy-safe, and scoped only by public clinic slug.
+- Every frontend feature should include route definitions, API integration,
+  loading/empty/error/success states, permission-denied behavior, and focused
+  component tests where practical.
+
 ## Feature Sequence
 
 | Order | ID | Feature | Depends On | Result |
@@ -100,6 +128,9 @@ Scope:
 - Global API response envelope and typed exception hierarchy.
 - Request ID propagation and structured PHI-safe logging.
 - Central audit module with write-mostly `audit_events`.
+- Frontend foundation with Vite app shell, login page, forced password reset
+  page, protected routes, shared API client, auth state, and basic error
+  handling.
 - Test fixtures for two clinics and cross-tenant leak tests.
 - Architecture checks that reject controller DTOs containing `clinicId` and
   tenant-blind repository patterns where feasible.
@@ -118,11 +149,13 @@ Acceptance checks:
 - Request body `clinicId` is ignored and logged as tenancy tampering.
 - Audit events commit in the same transaction as the action.
 - Global error responses never leak stack traces or PHI.
+- Frontend auth flows store tokens safely, refresh sessions, redirect by role,
+  and never log PHI or secrets.
 
 Speckit prompt:
 
 ```text
-$speckit-specify Implement F01 Foundation, Tenancy, Auth, Audit for Cliniqo AI. Build a Spring Boot modular monolith foundation with PostgreSQL, Flyway, UUID IDs, soft-delete base entity, audit columns, JWT auth, refresh tokens, TenantContext from JWT, WebsiteContext placeholder, explicit SUPER_ADMIN clinic route context placeholder, global API envelope, typed exceptions, request ID propagation, PHI-safe structured logging, and a centralized audit module. Enforce that clinic users never supply clinicId from request bodies, cross-tenant access returns 404, audit writes happen in the same transaction as the parent action, and integration tests cover Clinic A attempting to access Clinic B data. Exclude clinic onboarding UI, appointments, WhatsApp, OpenAI, and analytics screens.
+$speckit-specify Implement F01 Foundation, Tenancy, Auth, Audit for Cliniqo AI. Build a Spring Boot modular monolith foundation with PostgreSQL, Flyway, UUID IDs, soft-delete base entity, audit columns, JWT auth, refresh tokens, TenantContext from JWT, WebsiteContext placeholder, explicit SUPER_ADMIN clinic route context placeholder, global API envelope, typed exceptions, request ID propagation, PHI-safe structured logging, and a centralized audit module. Also build the React/Vite frontend foundation with login, forced password reset, protected routes, shared API client, auth state, role-aware redirects, loading/error states, and PHI-safe browser behavior. Enforce that clinic users never supply clinicId from request bodies, cross-tenant access returns 404, audit writes happen in the same transaction as the parent action, and integration tests cover Clinic A attempting to access Clinic B data. Exclude clinic onboarding UI, appointments, WhatsApp, OpenAI, and analytics screens.
 $speckit-plan
 $speckit-tasks
 $speckit-implement
@@ -146,6 +179,8 @@ Scope:
 - First Clinic Admin creation with temporary password, forced first-login reset,
   and one-time credential display.
 - Default clinic settings, reminder settings, FAQ seeds, and permissions.
+- Minimal SUPER_ADMIN onboarding UI for creating a clinic and first Clinic Admin,
+  showing one-time temporary credentials, and handling duplicate field errors.
 - Audit of every onboarding action.
 - Deactivating clinic revokes clinic refresh tokens.
 
@@ -163,11 +198,13 @@ Acceptance checks:
 - Initial SUPER_ADMIN exists after migration.
 - Clinic Admin cannot create SUPER_ADMIN users.
 - Temporary passwords are never logged and are shown once.
+- Onboarding UI never logs or persists temporary passwords after the one-time
+  display.
 
 Speckit prompt:
 
 ```text
-$speckit-specify Implement F02 Super Admin Bootstrap and Clinic Onboarding for Cliniqo AI. Seed the first SUPER_ADMIN with Flyway, protect SUPER_ADMIN-only APIs, and create an atomic onboarding flow that creates clinic profile, unique slug, timezone, operating hours, default language, settings, reminder defaults, FAQ defaults, public website slug, WhatsApp metadata, first Clinic Admin, default permissions, temporary password with forced first-login reset, and audit events. Enforce unique slug, clinic admin email, WABA phone number, and phone_number_id. Deactivating a clinic must revoke its users' refresh tokens. Exclude full platform dashboard, appointment booking, public website pages, and real WhatsApp template registration.
+$speckit-specify Implement F02 Super Admin Bootstrap and Clinic Onboarding for Cliniqo AI. Seed the first SUPER_ADMIN with Flyway, protect SUPER_ADMIN-only APIs, and create an atomic onboarding flow that creates clinic profile, unique slug, timezone, operating hours, default language, settings, reminder defaults, FAQ defaults, public website slug, WhatsApp metadata, first Clinic Admin, default permissions, temporary password with forced first-login reset, and audit events. Also implement a minimal SUPER_ADMIN onboarding UI with a validated clinic creation form, first admin form, WhatsApp metadata inputs, one-time credential display, duplicate field error handling, loading/success/error states, and no temporary-password persistence after display. Enforce unique slug, clinic admin email, WABA phone number, and phone_number_id. Deactivating a clinic must revoke its users' refresh tokens. Exclude full platform dashboard, appointment booking, public website pages, and real WhatsApp template registration.
 $speckit-plan
 $speckit-tasks
 $speckit-implement
@@ -186,6 +223,9 @@ Scope:
 - Modules: appointments, patients, doctors, conversations, faqs, analytics,
   clinic_settings, users, billing.
 - Server-driven navigation/permissions endpoint for frontend.
+- Clinic user-management frontend pages for listing staff, inviting/creating
+  users, editing roles and permissions, suspending, restoring, and linking
+  doctor users to doctor profiles.
 - Permission aspect or equivalent server-side enforcement.
 - Doctor user linkage to one doctor profile.
 - Last active CLINIC_ADMIN protection.
@@ -204,11 +244,13 @@ Acceptance checks:
 - RECEPTIONIST cannot receive admin on users, billing, or clinic settings.
 - Revoked permission affects the next API call.
 - DOCTOR scope is limited to own doctor records where applicable.
+- User-management pages hide unavailable actions based on server permissions
+  and still surface backend authorization errors safely.
 
 Speckit prompt:
 
 ```text
-$speckit-specify Implement F03 Clinic Users, Roles, Permissions for Cliniqo AI. Clinic Admins must create and manage Clinic Admin, Receptionist, and Doctor users only within their own clinic, assign per-module permission levels none/read/read-write/admin, enforce first-login password reset, expose server-driven navigation permissions, audit permission and user changes with before/after values, protect the last active Clinic Admin, and link Doctor users to doctor profiles. Server-side authorization must reject insufficient permissions with 403 and cross-tenant access with 404. Exclude SUPER_ADMIN two-person management, appointment operations, and analytics implementation.
+$speckit-specify Implement F03 Clinic Users, Roles, Permissions for Cliniqo AI. Clinic Admins must create and manage Clinic Admin, Receptionist, and Doctor users only within their own clinic, assign per-module permission levels none/read/read-write/admin, enforce first-login password reset, expose server-driven navigation permissions, audit permission and user changes with before/after values, protect the last active Clinic Admin, and link Doctor users to doctor profiles. Also implement clinic user-management frontend pages for staff list, invite/create user, activate/suspend/soft-delete/restore, role selection, permission matrix editing, doctor profile linkage, server-driven navigation, permission-denied states, and safe handling of backend authorization errors. Server-side authorization must reject insufficient permissions with 403 and cross-tenant access with 404. Exclude SUPER_ADMIN two-person management, appointment operations, and analytics implementation.
 $speckit-plan
 $speckit-tasks
 $speckit-implement
@@ -229,6 +271,8 @@ Scope:
 - Cancellation cutoff default 120 minutes, allowed 0-1440 minutes.
 - Doctor CRUD, active/inactive state, profile fields, speciality, languages.
 - Doctor schedules and working hours.
+- Clinic settings, doctor management, schedule editor, and availability preview
+  frontend pages for authorized clinic users.
 - Slot availability query reused by WhatsApp, receptionist, clinic admin, public
   website, and super admin flows.
 - Clinic timezone handling for all date boundaries.
@@ -246,11 +290,13 @@ Acceptance checks:
 - Invalid setting ranges return typed 422 errors.
 - Cross-tenant doctor/schedule access returns 404.
 - Timezone tests cover clinic-local date behavior.
+- Settings and schedule pages validate ranges before submit and show backend 422
+  errors inline.
 
 Speckit prompt:
 
 ```text
-$speckit-specify Implement F04 Clinic Settings, Doctors, Schedules, Availability for Cliniqo AI. Authorized clinic users must manage clinic settings, doctors, doctor schedules, working hours, slot duration allowed values, booking max advance window, booking notice, cancellation cutoff, reschedule cutoff, reminder windows, follow-up windows, timezone, languages, and website enable flag. Provide a reusable slot availability service for WhatsApp, receptionist, clinic admin, public website, and SUPER_ADMIN flows. Enforce tenant isolation, typed validation errors, clinic-local timezone behavior, and cross-tenant tests. Exclude appointment creation, public website pages, and WhatsApp/OpenAI integration.
+$speckit-specify Implement F04 Clinic Settings, Doctors, Schedules, Availability for Cliniqo AI. Authorized clinic users must manage clinic settings, doctors, doctor schedules, working hours, slot duration allowed values, booking max advance window, booking notice, cancellation cutoff, reschedule cutoff, reminder windows, follow-up windows, timezone, languages, and website enable flag. Also implement frontend pages for clinic settings, doctor CRUD, doctor active/inactive state, schedule editing, working-hours management, availability preview, inline validation, loading/empty/error states, and permission-aware actions. Provide a reusable slot availability service for WhatsApp, receptionist, clinic admin, public website, and SUPER_ADMIN flows. Enforce tenant isolation, typed validation errors, clinic-local timezone behavior, and cross-tenant tests. Exclude appointment creation, public website pages, and WhatsApp/OpenAI integration.
 $speckit-plan
 $speckit-tasks
 $speckit-implement
@@ -270,6 +316,8 @@ Scope:
 - Find-or-create/upsert by phone for appointment channels.
 - Soft delete and restore for patients.
 - Patient appointment history scoped to clinic.
+- Patient records frontend page with search, patient detail, edit, soft delete,
+  restore, and clinic-scoped appointment history.
 - PHI-safe search and logs.
 
 Out of scope:
@@ -285,11 +333,12 @@ Acceptance checks:
 - Search by name/phone is clinic-scoped.
 - Auto-registration is concurrency-safe.
 - Soft-deleted patient is invisible to normal reads and restorable when eligible.
+- Patient pages avoid PHI in browser logs and show only clinic-scoped history.
 
 Speckit prompt:
 
 ```text
-$speckit-specify Implement F05 Patient Records and Cross-Clinic Identity for Cliniqo AI. Patients must be scoped by clinic and uniquely identified by `(clinic_id, phone)`, allowing the same phone number in multiple clinics as independent patient records. Authorized clinic users must search and manage patients within their clinic, appointment channels must find-or-create patients by phone, language preference and reminder opt-out fields must be stored per clinic, patient history must remain tenant-scoped, soft delete/restore must preserve audit integrity, and PHI must not appear in logs. Exclude patient login, patient self-deletion, appointment booking, and medicine reminder courses.
+$speckit-specify Implement F05 Patient Records and Cross-Clinic Identity for Cliniqo AI. Patients must be scoped by clinic and uniquely identified by `(clinic_id, phone)`, allowing the same phone number in multiple clinics as independent patient records. Authorized clinic users must search and manage patients within their clinic, appointment channels must find-or-create patients by phone, language preference and reminder opt-out fields must be stored per clinic, patient history must remain tenant-scoped, soft delete/restore must preserve audit integrity, and PHI must not appear in logs. Also implement patient records frontend pages with clinic-scoped search, patient detail, edit, soft delete/restore, appointment history, empty/loading/error states, and PHI-safe browser behavior. Exclude patient login, patient self-deletion, appointment booking, and medicine reminder courses.
 $speckit-plan
 $speckit-tasks
 $speckit-implement
@@ -398,6 +447,9 @@ Scope:
 - Manual booking creates appointment with `createdBy = manual-receptionist`.
 - Auto-register or link patient by phone.
 - Reschedule, cancel, edit notes, and status quick actions.
+- Receptionist dashboard frontend with appointment table, filters, patient
+  search, patient detail drawer, booking modal, reschedule/cancel/status
+  dialogs, reminder failure queue, delivery indicators, and refresh behavior.
 - Reminder failures list with Retry and Mark Handled.
 - Delivery status indicator for WhatsApp confirmation.
 - Near-real-time refresh for new bookings where feasible.
@@ -416,11 +468,13 @@ Acceptance checks:
 - WhatsApp delivery failure does not roll back saved appointment.
 - Receptionist permissions are enforced server-side.
 - All modifications are audited.
+- Receptionist UI supports loading, empty, validation, delivery-failure, and
+  permission-denied states without exposing PHI in browser logs.
 
 Speckit prompt:
 
 ```text
-$speckit-specify Implement F08 Receptionist Dashboard and Manual Booking for Cliniqo AI. Receptionists must view today's appointments sorted by time, filter appointments by date/doctor/status/source/search, search patients, open patient detail, manually create appointments with `createdBy = manual-receptionist`, auto-register or link patients by phone, reschedule/cancel/edit notes/update status, see WhatsApp confirmation delivery status, and manage failed reminders with Retry or Mark Handled. Reuse shared appointment, availability, patient, notification, audit, tenancy, and permission services. Exclude full analytics, drag-to-reschedule future calendar behavior, and AI conversation reply UI unless already available.
+$speckit-specify Implement F08 Receptionist Dashboard and Manual Booking for Cliniqo AI. Receptionists must view today's appointments sorted by time, filter appointments by date/doctor/status/source/search, search patients, open patient detail, manually create appointments with `createdBy = manual-receptionist`, auto-register or link patients by phone, reschedule/cancel/edit notes/update status, see WhatsApp confirmation delivery status, and manage failed reminders with Retry or Mark Handled. Also implement the receptionist frontend dashboard with appointment table, filters, patient search, patient detail drawer, booking modal, reschedule/cancel/status dialogs, reminder failure queue, delivery indicators, near-real-time refresh where feasible, loading/empty/error/permission states, and PHI-safe browser behavior. Reuse shared appointment, availability, patient, notification, audit, tenancy, and permission services. Exclude full analytics, drag-to-reschedule future calendar behavior, and AI conversation reply UI unless already available.
 $speckit-plan
 $speckit-tasks
 $speckit-implement
@@ -574,6 +628,9 @@ Scope:
 - TALK_TO_HUMAN and AI fallback handoff.
 - Handoff stores conversation history and ESCALATED state.
 - Handoff can later return to AI.
+- Minimal receptionist handoff queue UI showing escalated conversations,
+  patient/appointment context when available, read-only recent message history,
+  and Mark Reviewed/Return to AI actions.
 
 Out of scope:
 
@@ -588,11 +645,13 @@ Acceptance checks:
 - Lookup exposes only the sender's clinic-scoped appointments.
 - Handoff events are visible to receptionist workflows.
 - All changes create audit and notification records.
+- Handoff queue is permission-aware and does not expose cross-clinic
+  conversations.
 
 Speckit prompt:
 
 ```text
-$speckit-specify Implement F12 WhatsApp Reschedule, Cancel, Lookup, Handoff for Cliniqo AI. Patients must reschedule appointments using W1-W5 rules, disambiguate multiple upcoming appointments, cancel only after the bot offers reschedule first and receives explicit confirmation, optionally provide cancellation reason, look up their own appointments by sender phone and resolved clinic, and request or receive receptionist handoff when AI confidence is low, repeated attempts fail, sensitive topics appear, or the patient asks for a human. All flows must use deterministic appointment services, tenant-safe conversation state, rate limits for lookup, audit events, and notification records. Exclude initial booking, public website booking, post-appointment auto-status, and full receptionist chat UI.
+$speckit-specify Implement F12 WhatsApp Reschedule, Cancel, Lookup, Handoff for Cliniqo AI. Patients must reschedule appointments using W1-W5 rules, disambiguate multiple upcoming appointments, cancel only after the bot offers reschedule first and receives explicit confirmation, optionally provide cancellation reason, look up their own appointments by sender phone and resolved clinic, and request or receive receptionist handoff when AI confidence is low, repeated attempts fail, sensitive topics appear, or the patient asks for a human. Also implement a minimal receptionist handoff queue UI with escalated conversation list, patient/appointment context when available, read-only recent message history, Mark Reviewed/Return to AI actions, loading/empty/error states, and permission-aware clinic scoping. All flows must use deterministic appointment services, tenant-safe conversation state, rate limits for lookup, audit events, and notification records. Exclude initial booking, public website booking, post-appointment auto-status, and full receptionist chat UI.
 $speckit-plan
 $speckit-tasks
 $speckit-implement
@@ -651,6 +710,9 @@ Scope:
 - Mobile-first responsive pages.
 - SEO metadata with clinic name, address, doctors.
 - Booking form with name, E.164 phone, selected slot.
+- Public frontend flow for clinic landing/profile, doctor list, doctor detail,
+  slot selection, booking form, OTP verification, resend cooldown, locked/expired
+  states, confirmation page, and disabled website page.
 - CAPTCHA or honeypot.
 - Booking intent state machine: DRAFT, AWAITING_OTP, VERIFIED, CONFIRMED,
   EXPIRED, LOCKED.
@@ -676,11 +738,13 @@ Acceptance checks:
 - OTP is required before final booking.
 - Slot is not double-booked under race conditions.
 - Disabled clinic website returns friendly 200 page.
+- Public pages are mobile-first, accessible, and do not expose patient details in
+  URLs, page metadata, browser logs, or shared state.
 
 Speckit prompt:
 
 ```text
-$speckit-specify Implement F14 Public Clinic Booking Website for Cliniqo AI. Each clinic must have a public slug URL resolved into WebsiteContext, public mobile-first pages for clinic profile, doctor list, doctor detail, and available slots, SEO metadata, a booking form with name/phone/slot, CAPTCHA or honeypot, booking intents, WhatsApp OTP with 5-minute TTL, 60-second resend cooldown, max 3 resends, max 5 verification attempts, per-phone/IP/slug rate limits, and final confirmation that creates an appointment with `createdBy = clinic-website` only after OTP verification. Public routes must never trust clinicId from input and must not expose PHI. Exclude cross-clinic marketplace, patient login, payments, reviews, and ratings.
+$speckit-specify Implement F14 Public Clinic Booking Website for Cliniqo AI. Each clinic must have a public slug URL resolved into WebsiteContext, public mobile-first pages for clinic profile, doctor list, doctor detail, available slots, slot selection, booking form, OTP verification, resend cooldown, locked/expired states, disabled website page, privacy-safe confirmation page, SEO metadata, CAPTCHA or honeypot, booking intents, WhatsApp OTP with 5-minute TTL, 60-second resend cooldown, max 3 resends, max 5 verification attempts, per-phone/IP/slug rate limits, and final confirmation that creates an appointment with `createdBy = clinic-website` only after OTP verification. Public routes must never trust clinicId from input and must not expose PHI in APIs, URLs, metadata, browser logs, or shared frontend state. Exclude cross-clinic marketplace, patient login, payments, reviews, and ratings.
 $speckit-plan
 $speckit-tasks
 $speckit-implement
@@ -742,6 +806,9 @@ Scope:
 - Appointment page with filters, status pills, source badges, quick actions.
 - Status UI labels mapped from canonical statuses.
 - Needs-verification widget for auto-marked appointments.
+- Clinic dashboard and analytics frontend pages with cards, trend summaries,
+  charts/tables, date-range controls, doctor/source/status filters, and
+  permission-aware navigation.
 - Analytics by configurable date range: total appointments, missed/no-show rate,
   cancellation rate, returning vs new patients, appointments by doctor,
   appointments by source, peak booking hours, reminder effectiveness.
@@ -762,11 +829,13 @@ Acceptance checks:
 - Source metrics use immutable `createdBy`.
 - Doctor view sees own schedule/patients only.
 - Date ranges and buckets respect clinic timezone.
+- Analytics pages show loading, empty, stale/error, permission-denied, and
+  doctor own-scope states.
 
 Speckit prompt:
 
 ```text
-$speckit-specify Implement F16 Clinic Staff Dashboard and Analytics for Cliniqo AI. Clinic users must receive server-permission-driven navigation and dashboard cards for today's appointments, upcoming appointments, no-shows, bookings by source, reminder confirmation rate, and open escalated conversations. Appointment pages must support filters, status pills, source badges, quick actions, and needs-verification badges. Analytics-authorized users must view aggregates by date range, status, doctor, source, cancellation, no-show, retention, peak booking hours, and reminder effectiveness, using clinic timezone and immutable createdBy. Enforce tenant isolation, doctor own-scope rules, and server-side permissions. Exclude CSV export and platform-level dashboard.
+$speckit-specify Implement F16 Clinic Staff Dashboard and Analytics for Cliniqo AI. Clinic users must receive server-permission-driven navigation and dashboard cards for today's appointments, upcoming appointments, no-shows, bookings by source, reminder confirmation rate, and open escalated conversations. Appointment pages must support filters, status pills, source badges, quick actions, and needs-verification badges. Analytics-authorized users must view aggregates by date range, status, doctor, source, cancellation, no-show, retention, peak booking hours, and reminder effectiveness, using clinic timezone and immutable createdBy. Also implement clinic dashboard and analytics frontend pages with cards, charts/tables, date-range controls, filters, appointment list interactions, permission-aware navigation, loading/empty/error states, and doctor own-scope views. Enforce tenant isolation, doctor own-scope rules, and server-side permissions. Exclude CSV export and platform-level dashboard.
 $speckit-plan
 $speckit-tasks
 $speckit-implement
@@ -782,6 +851,9 @@ Scope:
   no-show rates, WhatsApp delivery failure rate, AI fallback rate.
 - Clinic list with active/soft-deleted filters.
 - Clinic detail support view.
+- SUPER_ADMIN frontend pages for platform dashboard, clinic list, clinic detail
+  support view, cross-clinic support forms, SUPER_ADMIN user management,
+  two-person approval workflow, and audit log filtering.
 - Explicit super admin routes:
   `/api/v1/super-admin/clinics/{clinicId}/...`.
 - Cross-clinic user, doctor, appointment, patient, FAQ support actions.
@@ -808,11 +880,13 @@ Acceptance checks:
 - Purge is irreversible, requires reason, and leaves audit fact.
 - Last SUPER_ADMIN removal is blocked.
 - Support views do not break tenant isolation for clinic users.
+- SUPER_ADMIN pages use explicit target clinic paths only and make the selected
+  clinic context visible before cross-clinic support actions.
 
 Speckit prompt:
 
 ```text
-$speckit-specify Implement F17 Super Admin Support, Purge, Platform Audit for Cliniqo AI. SUPER_ADMIN users must access platform dashboard metrics, clinic list, clinic detail support views, explicit `/api/v1/super-admin/clinics/{clinicId}/...` routes for support actions, cross-clinic management of users/doctors/appointments/patients/FAQs, soft delete/restore, GDPR permanent purge requiring a reason, token revocation for deactivated or purged users, audit log query/filter, and platform aggregate metrics. SUPER_ADMIN user management must enforce two-person approval, block removal of the last active SUPER_ADMIN, infer permissions from role, and audit every action. Exclude clinic-user impersonation and non-MVP MFA enforcement.
+$speckit-specify Implement F17 Super Admin Support, Purge, Platform Audit for Cliniqo AI. SUPER_ADMIN users must access platform dashboard metrics, clinic list, clinic detail support views, explicit `/api/v1/super-admin/clinics/{clinicId}/...` routes for support actions, cross-clinic management of users/doctors/appointments/patients/FAQs, soft delete/restore, GDPR permanent purge requiring a reason, token revocation for deactivated or purged users, audit log query/filter, and platform aggregate metrics. Also implement SUPER_ADMIN frontend pages for platform dashboard, clinic list filters, clinic detail support view, cross-clinic support actions, SUPER_ADMIN user management, two-person approval workflow, audit log filtering, explicit selected-clinic context, loading/empty/error states, and safe confirmation dialogs for destructive actions. SUPER_ADMIN user management must enforce two-person approval, block removal of the last active SUPER_ADMIN, infer permissions from role, and audit every action. Exclude clinic-user impersonation and non-MVP MFA enforcement.
 $speckit-plan
 $speckit-tasks
 $speckit-implement

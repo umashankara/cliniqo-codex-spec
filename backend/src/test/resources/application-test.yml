@@ -1,0 +1,13 @@
+spring:
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+  flyway:
+    enabled: true
+
+cliniqo:
+  security:
+    jwt-secret: test-secret-test-secret-test-secret-test-secret
+    access-token-minutes: 15
+    refresh-token-days: 30

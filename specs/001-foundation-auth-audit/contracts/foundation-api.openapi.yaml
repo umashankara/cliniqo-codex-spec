@@ -1,0 +1,388 @@
+openapi: 3.0.3
+info:
+  title: Cliniqo F01 Foundation API
+  version: 0.1.0
+  description: Backend foundation contracts for authentication, tenant context, request IDs, errors, and audit-safe behavior.
+servers:
+  - url: /api/v1
+paths:
+  /auth/login:
+    post:
+      summary: Authenticate a clinic or platform user
+      operationId: login
+      tags: [Auth]
+      parameters:
+        - $ref: '#/components/parameters/RequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Authenticated session created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthEnvelope'
+        '401':
+          $ref: '#/components/responses/TypedError'
+  /auth/refresh:
+    post:
+      summary: Rotate refresh session and issue a new access session
+      operationId: refresh
+      tags: [Auth]
+      parameters:
+        - $ref: '#/components/parameters/RequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RefreshRequest'
+      responses:
+        '200':
+          description: Session refreshed and refresh token rotated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthEnvelope'
+        '401':
+          $ref: '#/components/responses/TypedError'
+  /auth/logout:
+    post:
+      summary: Revoke the current refresh session
+      operationId: logout
+      tags: [Auth]
+      parameters:
+        - $ref: '#/components/parameters/RequestId'
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LogoutRequest'
+      responses:
+        '200':
+          description: Session revoked
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EmptyEnvelope'
+        '401':
+          $ref: '#/components/responses/TypedError'
+  /foundation/tenant-probe/{recordId}:
+    get:
+      summary: Test-only clinic-scoped resource used to prove tenant isolation
+      operationId: getTenantProbe
+      tags: [FoundationTest]
+      parameters:
+        - $ref: '#/components/parameters/RequestId'
+        - name: recordId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Clinic-owned fixture record returned
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TenantProbeEnvelope'
+        '404':
+          description: Not found or tenant-hidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '401':
+          $ref: '#/components/responses/TypedError'
+    patch:
+      summary: Test-only clinic-scoped update used to prove tenant tamper handling
+      operationId: updateTenantProbe
+      tags: [FoundationTest]
+      parameters:
+        - $ref: '#/components/parameters/RequestId'
+        - name: recordId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+              description: Test payload; clinicId is ignored and audited if supplied.
+      responses:
+        '200':
+          description: Clinic-owned fixture record updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TenantProbeEnvelope'
+        '404':
+          $ref: '#/components/responses/TypedError'
+    delete:
+      summary: Test-only clinic-scoped delete used to prove tenant isolation
+      operationId: deleteTenantProbe
+      tags: [FoundationTest]
+      parameters:
+        - $ref: '#/components/parameters/RequestId'
+        - name: recordId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Clinic-owned fixture record soft-deleted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EmptyEnvelope'
+        '404':
+          $ref: '#/components/responses/TypedError'
+  /foundation/tenant-probe:
+    get:
+      summary: Test-only clinic-scoped list used to prove list isolation
+      operationId: listTenantProbe
+      tags: [FoundationTest]
+      parameters:
+        - $ref: '#/components/parameters/RequestId'
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Clinic-owned fixture records returned
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TenantProbeListEnvelope'
+        '401':
+          $ref: '#/components/responses/TypedError'
+  /super-admin/clinics/{clinicId}/context-probe:
+    get:
+      summary: Placeholder route proving explicit SUPER_ADMIN target-clinic context
+      operationId: getSuperAdminContextProbe
+      tags: [SuperAdminFoundation]
+      parameters:
+        - $ref: '#/components/parameters/RequestId'
+        - name: clinicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Explicit target clinic context accepted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuperAdminContextEnvelope'
+        '403':
+          $ref: '#/components/responses/TypedError'
+        '404':
+          $ref: '#/components/responses/TypedError'
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  parameters:
+    RequestId:
+      name: X-Request-Id
+      in: header
+      required: false
+      schema:
+        type: string
+      description: Client supplied request ID; server generates one if absent.
+  responses:
+    TypedError:
+      description: Typed safe error response
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+  schemas:
+    ApiMeta:
+      type: object
+      required: [requestId]
+      properties:
+        requestId:
+          type: string
+    LoginRequest:
+      type: object
+      required: [email, password]
+      additionalProperties: false
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          format: password
+    RefreshRequest:
+      type: object
+      required: [refreshToken]
+      additionalProperties: false
+      properties:
+        refreshToken:
+          type: string
+    LogoutRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        refreshToken:
+          type: string
+    AuthUser:
+      type: object
+      required: [id, email, role]
+      properties:
+        id:
+          type: string
+          format: uuid
+        email:
+          type: string
+          format: email
+        role:
+          type: string
+          enum: [SUPER_ADMIN, CLINIC_ADMIN, RECEPTIONIST, DOCTOR]
+        clinicId:
+          type: string
+          format: uuid
+          nullable: true
+          description: Present for clinic users; null for SUPER_ADMIN.
+    AuthResponse:
+      type: object
+      required: [accessToken, refreshToken, tokenType, expiresIn, user]
+      properties:
+        accessToken:
+          type: string
+        refreshToken:
+          type: string
+        tokenType:
+          type: string
+          example: Bearer
+        expiresIn:
+          type: integer
+        user:
+          $ref: '#/components/schemas/AuthUser'
+    ErrorBody:
+      type: object
+      required: [code, message]
+      properties:
+        code:
+          type: string
+          enum: [VALIDATION_ERROR, UNAUTHENTICATED, FORBIDDEN, NOT_FOUND, TENANCY_ERROR, CONFLICT, INTERNAL_ERROR]
+        message:
+          type: string
+        details:
+          type: object
+          additionalProperties: true
+          nullable: true
+    AuthEnvelope:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success:
+          type: boolean
+          enum: [true]
+        data:
+          $ref: '#/components/schemas/AuthResponse'
+        meta:
+          $ref: '#/components/schemas/ApiMeta'
+    EmptyEnvelope:
+      type: object
+      required: [success, meta]
+      properties:
+        success:
+          type: boolean
+          enum: [true]
+        data:
+          nullable: true
+        meta:
+          $ref: '#/components/schemas/ApiMeta'
+    ErrorEnvelope:
+      type: object
+      required: [success, error, meta]
+      properties:
+        success:
+          type: boolean
+          enum: [false]
+        error:
+          $ref: '#/components/schemas/ErrorBody'
+        meta:
+          $ref: '#/components/schemas/ApiMeta'
+    TenantProbe:
+      type: object
+      required: [id, clinicOwned]
+      properties:
+        id:
+          type: string
+          format: uuid
+        clinicOwned:
+          type: boolean
+    TenantProbeEnvelope:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success:
+          type: boolean
+          enum: [true]
+        data:
+          $ref: '#/components/schemas/TenantProbe'
+        meta:
+          $ref: '#/components/schemas/ApiMeta'
+    TenantProbeListEnvelope:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success:
+          type: boolean
+          enum: [true]
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/TenantProbe'
+        meta:
+          $ref: '#/components/schemas/ApiMeta'
+    SuperAdminContextProbe:
+      type: object
+      required: [targetClinicId, contextAccepted]
+      properties:
+        targetClinicId:
+          type: string
+          format: uuid
+        contextAccepted:
+          type: boolean
+    SuperAdminContextEnvelope:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success:
+          type: boolean
+          enum: [true]
+        data:
+          $ref: '#/components/schemas/SuperAdminContextProbe'
+        meta:
+          $ref: '#/components/schemas/ApiMeta'
