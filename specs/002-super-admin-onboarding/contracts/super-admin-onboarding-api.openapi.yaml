@@ -102,7 +102,7 @@ paths:
           $ref: '#/components/responses/TypedError'
   /auth/refresh:
     post:
-      summary: Refresh session; F02 requires rejection when the user's clinic is inactive
+      summary: Refresh session using the F01 auth envelope; F02 adds inactive-clinic rejection
       operationId: refreshWithClinicStatusCheck
       tags: [Auth]
       parameters:
@@ -120,9 +120,13 @@ paths:
                   type: string
       responses:
         '200':
-          description: Session refreshed for an active user and active clinic
+          description: F01 auth success envelope returned when the user and, for clinic-scoped users, the clinic are active
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthEnvelope'
         '401':
-          description: Refresh token invalid, revoked, expired, reused, or clinic inactive
+          description: Refresh token invalid, revoked, expired, reused, or typed CLINIC_INACTIVE when the user's clinic is inactive
           content:
             application/json:
               schema:
@@ -196,6 +200,51 @@ components:
           $ref: '#/components/schemas/ErrorDetail'
         meta:
           $ref: '#/components/schemas/ApiMeta'
+    AuthEnvelope:
+      type: object
+      description: F01 auth success envelope reused by /auth/refresh; F02 does not change the success payload.
+      required: [success, data, meta]
+      properties:
+        success:
+          type: boolean
+          enum: [true]
+        data:
+          $ref: '#/components/schemas/AuthSession'
+        meta:
+          $ref: '#/components/schemas/ApiMeta'
+    AuthSession:
+      type: object
+      required: [accessToken, refreshToken, tokenType, expiresInSeconds, user]
+      properties:
+        accessToken:
+          type: string
+        refreshToken:
+          type: string
+        tokenType:
+          type: string
+          enum: [Bearer]
+        expiresInSeconds:
+          type: integer
+          minimum: 1
+        user:
+          $ref: '#/components/schemas/AuthUser'
+    AuthUser:
+      type: object
+      required: [userId, email, role]
+      properties:
+        userId:
+          type: string
+          format: uuid
+        email:
+          type: string
+          format: email
+        role:
+          type: string
+          enum: [SUPER_ADMIN, CLINIC_ADMIN, DOCTOR, RECEPTIONIST]
+        clinicId:
+          type: string
+          format: uuid
+          nullable: true
     BootstrapStatusEnvelope:
       type: object
       required: [success, data, meta]
@@ -419,8 +468,9 @@ components:
           format: email
         temporaryPassword:
           type: string
-          writeOnly: true
-          description: Returned only once in the initial success response.
+          description: Sensitive one-time temporary password returned only in the initial 201 onboarding response; never returned by repeatable reads or idempotent replay responses.
+          x-sensitive: true
+          x-one-time-secret: true
         forcePasswordReset:
           type: boolean
           enum: [true]

@@ -26,9 +26,11 @@ first Clinic Admin, permissions, credential state, public slug reservation, and 
 ## Decision: Flyway Bootstrap For Initial SUPER_ADMIN
 
 **Rationale**: F02 requires the first platform operator to exist after migration/setup. Flyway is
-already required by `TECH_STACK.md` and F01. The migration must be idempotent, avoid duplicate
-SUPER_ADMIN records, and use a non-live bootstrap secret source strategy resolved during
-implementation.
+already required by `TECH_STACK.md` and F01. The migration must be idempotent and avoid duplicate
+SUPER_ADMIN records. Flyway seeds the first SUPER_ADMIN from configured placeholders for bootstrap
+email and bcrypt password hash, so no live password is committed to the repository. Test/dev
+profiles may use a documented non-live bcrypt hash that is clearly marked as unsafe outside local
+or automated validation environments.
 
 **Alternatives considered**:
 - Manual database insert: rejected because it is not repeatable and is unsafe for new
@@ -36,6 +38,8 @@ implementation.
 - Application startup seeding only: rejected as the primary mechanism because schema and bootstrap
   state should be traceable through migration history; startup validation may still protect
   misconfiguration.
+- Committing a plaintext or live bootstrap password: rejected because bootstrap credentials must be
+  supplied by environment-specific configuration and never stored in source control.
 
 ## Decision: SUPER_ADMIN Sessions Carry No Clinic Scope
 

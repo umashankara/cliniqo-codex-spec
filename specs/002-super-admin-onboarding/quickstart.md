@@ -74,17 +74,25 @@ onboarding UI can call `/api/v1/super-admin/onboarding/clinics` through the shar
 - Review [contracts/super-admin-onboarding-api.openapi.yaml](./contracts/super-admin-onboarding-api.openapi.yaml).
 - Review [contracts/onboarding-ui.md](./contracts/onboarding-ui.md).
 - Confirm onboarding request bodies do not allow clinic users to supply authoritative `clinicId`.
-- Confirm write-only temporary password and WhatsApp placeholder fields are not exposed in
-  repeatable responses.
+- Confirm the one-time temporary password is returned only in the initial onboarding `201` response
+  and is marked sensitive/one-time in the contract rather than `writeOnly`.
+- Confirm WhatsApp placeholder fields remain write-only inputs and are not exposed in repeatable
+  responses.
+- Confirm `/auth/refresh` continues to use the F01 auth success envelope and only adds the F02
+  typed `401 CLINIC_INACTIVE` rejection for inactive clinics.
 
 ## Validation Scenarios
 
 ### 1. Bootstrap SUPER_ADMIN
 
-1. Start from a fresh migrated database.
-2. Confirm exactly one active bootstrap SUPER_ADMIN exists.
+1. Start from a fresh migrated database with Flyway bootstrap placeholders configured for
+   bootstrap email and bcrypt password hash.
+2. Confirm exactly one active bootstrap SUPER_ADMIN exists with the configured email.
 3. Confirm rerunning migrations/setup does not create duplicate SUPER_ADMIN accounts.
-4. Sign in as SUPER_ADMIN and confirm the session has no clinic scope.
+4. Confirm test/dev uses only the documented non-live bcrypt hash and no live bootstrap password is
+   committed.
+5. Confirm missing or invalid bootstrap placeholders fail safely in non-test environments.
+6. Sign in as SUPER_ADMIN and confirm the session has no clinic scope.
 
 ### 2. SUPER_ADMIN-Only Protection
 
@@ -127,10 +135,12 @@ onboarding UI can call `/api/v1/super-admin/onboarding/clinics` through the shar
 
 1. Complete onboarding.
 2. Confirm the success response/UI shows the temporary password exactly once.
-3. Refresh or navigate away and confirm the UI cannot recover it.
-4. Sign in as the first Clinic Admin and confirm forced password reset is required before normal
+3. Repeat the request through an idempotent replay or read the onboarding result and confirm the
+   temporary password is absent.
+4. Refresh or navigate away and confirm the UI cannot recover it.
+5. Sign in as the first Clinic Admin and confirm forced password reset is required before normal
    clinic access.
-5. Confirm temporary password, password hash, and tokens do not appear in logs or audit metadata.
+6. Confirm temporary password, password hash, and tokens do not appear in logs or audit metadata.
 
 ### 7. WhatsApp Credential Safety
 
@@ -145,7 +155,7 @@ onboarding UI can call `/api/v1/super-admin/onboarding/clinics` through the shar
 1. Onboard a clinic and create/sign in clinic users.
 2. Deactivate the clinic as SUPER_ADMIN with a reason.
 3. Confirm the clinic is inactive and all clinic-user refresh sessions are revoked.
-4. Attempt refresh for affected users and confirm safe authentication failure.
+4. Attempt refresh for affected users and confirm typed `401 CLINIC_INACTIVE`.
 5. Confirm audit events include SUPER_ADMIN actor, target clinic, reason category, request ID, and
    refresh-session revocation summary without secrets.
 
