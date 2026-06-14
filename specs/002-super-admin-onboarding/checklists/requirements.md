@@ -32,6 +32,7 @@
 ## Notes
 
 - Validation iteration 1 passed.
-- The specification intentionally excludes the minimal onboarding UI mentioned in `feature.md`
-  because the latest user prompt explicitly excludes onboarding UI.
+- Audit iteration 2 added the minimal SUPER_ADMIN onboarding UI from `feature.md`, including
+  one-time credential display, duplicate-field handling, loading/success/error states, and
+  no temporary-password persistence after display.
 - No clarification markers remain; ready for `/speckit-plan`.

@@ -113,6 +113,33 @@ revocation outcome.
    the SUPER_ADMIN actor, target clinic, deactivation reason, and token revocation summary without
    exposing secrets.
 
+---
+
+### User Story 5 - Complete Onboarding from a Minimal Platform UI (Priority: P2)
+
+A SUPER_ADMIN needs a focused onboarding screen to enter clinic, first-admin, and WhatsApp metadata,
+submit the onboarding operation, handle validation or duplicate-field failures, and view temporary
+credentials exactly once after success.
+
+**Why this priority**: The platform must be usable by an operator without a full dashboard, while
+still protecting temporary passwords and sensitive onboarding data.
+
+**Independent Test**: Sign in as SUPER_ADMIN, complete the onboarding form, verify loading,
+field-error, success, and one-time credential states, and verify no temporary password is persisted
+or shown again after the one-time display is dismissed or left.
+
+**Acceptance Scenarios**:
+
+1. **Given** a SUPER_ADMIN is signed in, **When** the operator opens the onboarding area, **Then**
+   the operator can enter clinic profile, operating defaults, first Clinic Admin, public slug, and
+   WhatsApp metadata without accessing a full platform dashboard.
+2. **Given** onboarding input has duplicate slug, admin email, WABA display number, or phone number
+   identifier, **When** the operator submits the form, **Then** the UI shows field-specific safe
+   errors and preserves non-sensitive entered values for correction.
+3. **Given** onboarding succeeds, **When** the success state is shown, **Then** the temporary
+   password is displayed once, can be handed to the first Clinic Admin, and is not persisted or
+   recoverable from the UI afterward.
+
 ### Edge Cases
 
 - Bootstrap runs more than once: it must not create duplicate SUPER_ADMIN accounts or weaken the
@@ -131,6 +158,8 @@ revocation outcome.
   no usable first-admin account remains.
 - Temporary password is requested after the one-time display is consumed: it is not recoverable;
   the platform must require a fresh reset flow.
+- Onboarding UI is refreshed, navigated away from, or reopened after success: temporary credentials
+  are not restored from browser storage, logs, cached responses, or page state.
 - WhatsApp token placeholders or metadata contain secrets: secrets are never logged or shown in
   audit details, and onboarding responses only expose safe metadata.
 - Public website slug is reserved but public pages are excluded: slug lookup can be prepared for
@@ -201,8 +230,20 @@ revocation outcome.
   clinic is deactivated.
 - **FR-025**: System MUST reject session refresh for users whose clinic has been deactivated, even
   when their previous refresh session was issued before deactivation.
-- **FR-026**: System MUST exclude full platform dashboard, appointment booking, public website
-  pages, real WhatsApp template registration, and onboarding UI from this feature.
+- **FR-026**: System MUST provide a minimal SUPER_ADMIN onboarding UI for creating a clinic and
+  first Clinic Admin, entering WhatsApp metadata, submitting onboarding, and viewing the one-time
+  temporary credential after success.
+- **FR-027**: Onboarding UI MUST validate required clinic, first-admin, default settings, public
+  slug, and WhatsApp metadata before submission while still treating server validation as
+  authoritative.
+- **FR-028**: Onboarding UI MUST show loading, success, validation-error, duplicate-field, and safe
+  unexpected-error states for the onboarding operation.
+- **FR-029**: Onboarding UI MUST NOT log, persist, cache, store in browser storage, or re-display
+  temporary passwords after the one-time success display.
+- **FR-030**: System MUST prevent Clinic Admin users and other clinic-scoped roles from creating,
+  assigning, or elevating any user to SUPER_ADMIN.
+- **FR-031**: System MUST exclude full platform dashboard, appointment booking, public website
+  pages, and real WhatsApp template registration from this feature.
 
 ### Key Entities *(include if feature involves data)*
 
@@ -230,6 +271,9 @@ revocation outcome.
   first Clinic Admin for later clinic operations.
 - **Temporary Credential State**: One-time password issuance state that requires first-login reset
   and is not recoverable after display.
+- **Minimal Onboarding UI State**: The focused platform operator experience for collecting
+  onboarding input, showing safe validation states, and presenting one-time credentials without
+  retaining them.
 - **Refresh Session**: A revocable authenticated session that must be invalidated for users of a
   deactivated clinic.
 - **Audit Event**: A PHI-redacted record of bootstrap, onboarding, uniqueness failure, credential,
@@ -252,13 +296,14 @@ revocation outcome.
   access.
 - **Module Boundaries**: Affects platform administration, clinic onboarding, authentication,
   permissions bootstrap, clinic settings defaults, WhatsApp metadata ownership, public website slug
-  reservation, refresh-session revocation, and audit. Later modules consume the created defaults
-  through their own service boundaries.
+  reservation, minimal SUPER_ADMIN onboarding UI, refresh-session revocation, and audit. Later
+  modules consume the created defaults through their own service boundaries.
 - **Required Tests**: Requires bootstrap idempotency tests, SUPER_ADMIN-only authorization tests,
   onboarding transaction rollback tests, uniqueness conflict tests, temporary-password one-time
-  display and forced-reset tests, PHI-safe logging/audit tests, clinic deactivation token
-  revocation tests, and concurrency tests for duplicate slug, admin email, WhatsApp display number,
-  and phone number identifier.
+  display and forced-reset tests, minimal onboarding UI state tests, PHI-safe browser/logging/audit
+  tests, clinic deactivation token revocation tests, Clinic Admin cannot create SUPER_ADMIN tests,
+  and concurrency tests for duplicate slug, admin email, WhatsApp display number, and phone number
+  identifier.
 
 ## Success Criteria *(mandatory)*
 
@@ -282,11 +327,15 @@ revocation outcome.
   appear in application logs, audit metadata, or repeatable responses during onboarding tests.
 - **SC-008**: 100% of clinic deactivation operations revoke refresh sessions for users of the
   target clinic, and 100% of those users are unable to refresh sessions afterward.
+- **SC-009**: 100% of successful onboarding UI flows show the temporary password once and cannot
+  recover it after refresh, navigation away, dismissal, logout, or reopening the onboarding result.
+- **SC-010**: 100% of Clinic Admin attempts to create or elevate a SUPER_ADMIN are rejected before
+  any user role changes.
 
 ## Assumptions
 
-- The latest user prompt intentionally excludes onboarding UI even though `feature.md` mentions a
-  minimal SUPER_ADMIN onboarding UI; this specification keeps UI out of F02.
+- F02 includes only the minimal SUPER_ADMIN onboarding UI described in `feature.md`; the broader
+  SUPER_ADMIN dashboard and support console remain excluded.
 - The bootstrap SUPER_ADMIN identity and initial secret source will be defined during planning and
   must avoid committing live credentials to the repository.
 - Clinic Admin email is globally unique across retained user accounts for MVP simplicity and to
