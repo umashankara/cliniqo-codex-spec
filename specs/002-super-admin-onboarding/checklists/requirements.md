@@ -35,4 +35,8 @@
 - Audit iteration 2 added the minimal SUPER_ADMIN onboarding UI from `feature.md`, including
   one-time credential display, duplicate-field handling, loading/success/error states, and
   no temporary-password persistence after display.
+- Audit iteration 3 checked F02 against `.specify/memory/constitution.md` and added explicit
+  coverage for SUPER_ADMIN sessions without clinic scope, encrypted WhatsApp credential storage,
+  retry/idempotent-safe onboarding and deactivation behavior, safe operational failure visibility,
+  and a measurable onboarding outcome budget.
 - No clarification markers remain; ready for `/speckit-plan`.

@@ -32,6 +32,8 @@ operations.
    clinic or user state changes.
 3. **Given** the bootstrap SUPER_ADMIN signs in, **When** audit records are reviewed, **Then** the
    authentication and subsequent platform actions are traceable without exposing credentials.
+4. **Given** the bootstrap SUPER_ADMIN is authenticated, **When** the session is inspected for
+   platform authority, **Then** it carries SUPER_ADMIN role authority without any clinic scope.
 
 ---
 
@@ -61,6 +63,9 @@ required part to fail and verify none of the onboarding records are committed.
    public slug reservation, or success audit event remains.
 3. **Given** onboarding succeeds, **When** the SUPER_ADMIN views the result, **Then** the temporary
    password is available for one-time display only and is never exposed in audit records or logs.
+4. **Given** a SUPER_ADMIN retries the same onboarding submission because of a timeout or double
+   click, **When** the original request already succeeded, **Then** the platform does not create a
+   duplicate clinic, user, public slug, WhatsApp metadata record, or temporary credential.
 
 ---
 
@@ -151,6 +156,9 @@ or shown again after the one-time display is dismissed or left.
   remains unambiguous and unique.
 - Two SUPER_ADMIN users submit the same clinic slug, first-admin email, WhatsApp display number, or
   phone number identifier concurrently: only one succeeds and the other receives a safe conflict.
+- The same onboarding request is submitted more than once due to retry, timeout, or double click:
+  repeated handling must not create duplicate clinics, users, public slugs, WhatsApp metadata, audit
+  success records, or temporary credentials.
 - Onboarding fails after some records were prepared: all durable onboarding state rolls back
   together, including clinic profile, settings, permissions, FAQ defaults, WhatsApp metadata, public
   slug reservation, first admin, temporary credential state, and success audit events.
@@ -161,11 +169,15 @@ or shown again after the one-time display is dismissed or left.
 - Onboarding UI is refreshed, navigated away from, or reopened after success: temporary credentials
   are not restored from browser storage, logs, cached responses, or page state.
 - WhatsApp token placeholders or metadata contain secrets: secrets are never logged or shown in
-  audit details, and onboarding responses only expose safe metadata.
+  audit details, sensitive stored values are encrypted at rest, and onboarding responses only expose
+  safe metadata.
 - Public website slug is reserved but public pages are excluded: slug lookup can be prepared for
   later features, but no public booking page is exposed by this feature.
 - Clinic deactivation is retried after a partial or already completed request: the result remains
   safe, auditable, and does not leave active refresh sessions for that clinic.
+- Onboarding or deactivation reaches an operational failure state that needs platform attention:
+  the failure is visible to SUPER_ADMIN users through safe status or error details and is linked to
+  request/audit context without exposing secrets.
 - Clinic-local timezone changes are not part of this feature after onboarding; initial timezone is
   validated during creation and later edit flows belong to clinic settings features.
 
@@ -180,76 +192,85 @@ or shown again after the one-time display is dismissed or left.
 - **FR-003**: System MUST allow only authenticated SUPER_ADMIN users to create clinics, create the
   first Clinic Admin through onboarding, manage onboarding-only platform data, or deactivate
   clinics.
-- **FR-004**: System MUST reject onboarding and deactivation attempts from non-SUPER_ADMIN users
+- **FR-004**: SUPER_ADMIN authenticated sessions MUST carry platform role authority without clinic
+  scope, and clinic-specific platform actions MUST identify their target clinic explicitly through
+  trusted platform action context.
+- **FR-005**: System MUST reject onboarding and deactivation attempts from non-SUPER_ADMIN users
   before changing clinic, user, credential, settings, WhatsApp, permission, or audit success state.
-- **FR-005**: System MUST create the clinic profile during onboarding with name, slug, address,
+- **FR-006**: System MUST create the clinic profile during onboarding with name, slug, address,
   country, timezone, default language, operating hours, primary phone, email, slot duration, booking
   windows, cancellation and reschedule cutoffs, and logo metadata when provided.
-- **FR-006**: System MUST enforce that clinic slugs are unique, URL-safe, lower-case, and reserved
+- **FR-007**: System MUST enforce that clinic slugs are unique, URL-safe, lower-case, and reserved
   for one clinic only.
-- **FR-007**: System MUST create default clinic settings required for later scheduling,
+- **FR-008**: System MUST create default clinic settings required for later scheduling,
   communication, language, booking-window, cutoff, and operational behavior.
-- **FR-008**: System MUST create default appointment reminder settings for the clinic, including
+- **FR-009**: System MUST create default appointment reminder settings for the clinic, including
   morning-of and relative pre-appointment reminder defaults that later notification features can
   use.
-- **FR-009**: System MUST create default FAQ records for the clinic from platform-approved seed
+- **FR-010**: System MUST create default FAQ records for the clinic from platform-approved seed
   content suitable for later clinic customization.
-- **FR-010**: System MUST reserve a public website slug for the clinic and store whether public
+- **FR-011**: System MUST reserve a public website slug for the clinic and store whether public
   website booking is enabled, without exposing public website pages in this feature.
-- **FR-011**: System MUST capture WhatsApp business metadata for the clinic, including WABA
+- **FR-012**: System MUST capture WhatsApp business metadata for the clinic, including WABA
   identifier, phone number identifier, display phone number, template namespace, and secure token
   placeholders.
-- **FR-012**: System MUST enforce uniqueness for WhatsApp display phone number and WhatsApp phone
+- **FR-013**: System MUST encrypt sensitive WhatsApp credential placeholders and tokens at rest.
+- **FR-014**: System MUST enforce uniqueness for WhatsApp display phone number and WhatsApp phone
   number identifier across clinics.
-- **FR-013**: System MUST create the first Clinic Admin account as part of onboarding and associate
+- **FR-015**: System MUST create the first Clinic Admin account as part of onboarding and associate
   it only with the newly created clinic.
-- **FR-014**: System MUST enforce uniqueness of the first Clinic Admin email across retained user
+- **FR-016**: System MUST enforce uniqueness of the first Clinic Admin email across retained user
   accounts so one login email cannot silently belong to multiple accounts.
-- **FR-015**: System MUST assign the first Clinic Admin the default clinic-admin role and default
+- **FR-017**: System MUST assign the first Clinic Admin the default clinic-admin role and default
   permissions needed to manage the clinic in later staff and settings features.
-- **FR-016**: System MUST generate a temporary password for the first Clinic Admin, mark it for
+- **FR-018**: System MUST generate a temporary password for the first Clinic Admin, mark it for
   forced reset at first login, and prevent normal clinic access until reset is completed.
-- **FR-017**: System MUST display or return the temporary password only once after successful
+- **FR-019**: System MUST display or return the temporary password only once after successful
   onboarding and MUST NOT store, log, audit, or re-display it in recoverable plain text.
-- **FR-018**: System MUST commit clinic profile, settings, reminder defaults, FAQ defaults, public
+- **FR-020**: System MUST commit clinic profile, settings, reminder defaults, FAQ defaults, public
   slug reservation, WhatsApp metadata, first Clinic Admin, default permissions, temporary credential
   state, and required success audit events as one all-or-nothing onboarding operation.
-- **FR-019**: System MUST roll back the entire onboarding operation when any required onboarding
+- **FR-021**: System MUST roll back the entire onboarding operation when any required onboarding
   validation, uniqueness check, credential action, or audit write fails.
-- **FR-020**: System MUST return field-specific, safe conflict feedback for duplicate clinic slug,
+- **FR-022**: System MUST make repeated onboarding and deactivation submissions safe so retries,
+  timeouts, or double clicks cannot create duplicate durable records or duplicate temporary
+  credentials.
+- **FR-023**: System MUST return field-specific, safe conflict feedback for duplicate clinic slug,
   first Clinic Admin email, WhatsApp display phone number, and WhatsApp phone number identifier.
-- **FR-021**: System MUST write audit events for bootstrap availability, successful and failed
+- **FR-024**: System MUST write audit events for bootstrap availability, successful and failed
   onboarding attempts, clinic creation, first Clinic Admin creation, default permission assignment,
   WhatsApp metadata capture, public slug reservation, temporary credential issuance, and clinic
   deactivation.
-- **FR-022**: System MUST keep audit metadata free of PHI, credentials, tokens, raw phone secrets,
+- **FR-025**: System MUST keep audit metadata free of PHI, credentials, tokens, raw phone secrets,
   temporary passwords, and sensitive WhatsApp credentials.
-- **FR-023**: System MUST deactivate a clinic only through a SUPER_ADMIN action with a required
+- **FR-026**: System MUST expose onboarding and deactivation failure states safely to SUPER_ADMIN
+  users with request or audit context sufficient for support follow-up.
+- **FR-027**: System MUST deactivate a clinic only through a SUPER_ADMIN action with a required
   reason.
-- **FR-024**: System MUST revoke refresh sessions for all users associated with a clinic when that
+- **FR-028**: System MUST revoke refresh sessions for all users associated with a clinic when that
   clinic is deactivated.
-- **FR-025**: System MUST reject session refresh for users whose clinic has been deactivated, even
+- **FR-029**: System MUST reject session refresh for users whose clinic has been deactivated, even
   when their previous refresh session was issued before deactivation.
-- **FR-026**: System MUST provide a minimal SUPER_ADMIN onboarding UI for creating a clinic and
+- **FR-030**: System MUST provide a minimal SUPER_ADMIN onboarding UI for creating a clinic and
   first Clinic Admin, entering WhatsApp metadata, submitting onboarding, and viewing the one-time
   temporary credential after success.
-- **FR-027**: Onboarding UI MUST validate required clinic, first-admin, default settings, public
+- **FR-031**: Onboarding UI MUST validate required clinic, first-admin, default settings, public
   slug, and WhatsApp metadata before submission while still treating server validation as
   authoritative.
-- **FR-028**: Onboarding UI MUST show loading, success, validation-error, duplicate-field, and safe
+- **FR-032**: Onboarding UI MUST show loading, success, validation-error, duplicate-field, and safe
   unexpected-error states for the onboarding operation.
-- **FR-029**: Onboarding UI MUST NOT log, persist, cache, store in browser storage, or re-display
+- **FR-033**: Onboarding UI MUST NOT log, persist, cache, store in browser storage, or re-display
   temporary passwords after the one-time success display.
-- **FR-030**: System MUST prevent Clinic Admin users and other clinic-scoped roles from creating,
+- **FR-034**: System MUST prevent Clinic Admin users and other clinic-scoped roles from creating,
   assigning, or elevating any user to SUPER_ADMIN.
-- **FR-031**: System MUST exclude full platform dashboard, appointment booking, public website
+- **FR-035**: System MUST exclude full platform dashboard, appointment booking, public website
   pages, and real WhatsApp template registration from this feature.
 
 ### Key Entities *(include if feature involves data)*
 
 - **SUPER_ADMIN User**: A platform operator account with cross-tenant authority for onboarding and
-  deactivation actions. SUPER_ADMIN permissions are role-derived rather than editable clinic
-  permission rows.
+  deactivation actions. SUPER_ADMIN sessions carry no clinic scope, and SUPER_ADMIN permissions are
+  role-derived rather than editable clinic permission rows.
 - **Clinic**: A tenant boundary with profile, address, contact, timezone, default language, slug,
   active status, and operational defaults.
 - **Clinic Settings**: The clinic's default operating configuration, including slot duration,
@@ -264,7 +285,8 @@ or shown again after the one-time display is dismissed or left.
 - **Public Website Slug Reservation**: A unique public-facing slug and enablement flag reserved for
   later public clinic website features.
 - **WhatsApp Metadata**: Per-clinic business account and phone metadata, including WABA identifier,
-  display number, phone number identifier, template namespace, and secure credential placeholders.
+  display number, phone number identifier, template namespace, and encrypted credential
+  placeholders.
 - **Clinic Admin User**: The first tenant-scoped administrator created during onboarding, assigned
   to the clinic and required to reset a temporary password on first login.
 - **Default Permission Set**: Initial role-derived and module-level permissions assigned to the
@@ -283,27 +305,29 @@ or shown again after the one-time display is dismissed or left.
 
 - **Tenant Isolation**: Clinic scope is created by SUPER_ADMIN onboarding and then becomes the
   trusted tenant boundary for future clinic users. Clinic users do not provide authoritative
-  `clinicId`. SUPER_ADMIN onboarding and deactivation are cross-tenant platform actions and must be
-  explicitly audited with actor and target clinic.
+  `clinicId`. SUPER_ADMIN sessions carry no clinic scope, and SUPER_ADMIN onboarding and
+  deactivation are cross-tenant platform actions that must be explicitly audited with actor and
+  target clinic.
 - **Appointment/Channel Lifecycle**: Appointment booking and message dispatch are excluded. This
   feature prepares clinic defaults, reminder defaults, operating hours, and WhatsApp metadata that
   later appointment and channel features will consume without creating appointments or registering
   live templates.
 - **PHI/Security/Audit**: The feature handles platform identity, staff credentials, clinic contact
   details, phone metadata, WhatsApp credential placeholders, temporary passwords, refresh-session
-  revocation, and deactivation reasons. It requires PHI-safe responses, no temporary-password or
-  token logging, protected credential display, same-operation audit writes, and SUPER_ADMIN-only
-  access.
+  revocation, and deactivation reasons. It requires encrypted WhatsApp credential storage,
+  PHI-safe responses, no temporary-password or token logging, protected credential display,
+  same-operation audit writes, and SUPER_ADMIN-only access.
 - **Module Boundaries**: Affects platform administration, clinic onboarding, authentication,
   permissions bootstrap, clinic settings defaults, WhatsApp metadata ownership, public website slug
   reservation, minimal SUPER_ADMIN onboarding UI, refresh-session revocation, and audit. Later
   modules consume the created defaults through their own service boundaries.
 - **Required Tests**: Requires bootstrap idempotency tests, SUPER_ADMIN-only authorization tests,
-  onboarding transaction rollback tests, uniqueness conflict tests, temporary-password one-time
-  display and forced-reset tests, minimal onboarding UI state tests, PHI-safe browser/logging/audit
-  tests, clinic deactivation token revocation tests, Clinic Admin cannot create SUPER_ADMIN tests,
-  and concurrency tests for duplicate slug, admin email, WhatsApp display number, and phone number
-  identifier.
+  SUPER_ADMIN no-clinic-scope tests, onboarding transaction rollback tests, retry/idempotent-safe
+  submission tests, uniqueness conflict tests, encrypted WhatsApp credential storage tests,
+  temporary-password one-time display and forced-reset tests, minimal onboarding UI state tests,
+  PHI-safe browser/logging/audit tests, clinic deactivation token revocation tests, Clinic Admin
+  cannot create SUPER_ADMIN tests, and concurrency tests for duplicate slug, admin email, WhatsApp
+  display number, and phone number identifier.
 
 ## Success Criteria *(mandatory)*
 
@@ -319,18 +343,24 @@ or shown again after the one-time display is dismissed or left.
   permissions, temporary credential state, and audit records together.
 - **SC-004**: 100% of forced onboarding failures leave zero partial clinic onboarding records and
   zero misleading success audit events.
-- **SC-005**: 100% of duplicate slug, first-admin email, WhatsApp display number, and WhatsApp
+- **SC-005**: 100% of retried or duplicate-submitted onboarding and deactivation requests avoid
+  duplicate durable records and duplicate temporary credentials.
+- **SC-006**: 100% of duplicate slug, first-admin email, WhatsApp display number, and WhatsApp
   phone number identifier attempts return field-specific conflict feedback and create no new clinic.
-- **SC-006**: 100% of first Clinic Admin accounts created by onboarding must reset their temporary
+- **SC-007**: 100% of first Clinic Admin accounts created by onboarding must reset their temporary
   password before normal clinic access.
-- **SC-007**: 0 temporary passwords, credential tokens, WhatsApp secrets, or raw sensitive values
+- **SC-008**: 0 temporary passwords, credential tokens, WhatsApp secrets, or raw sensitive values
   appear in application logs, audit metadata, or repeatable responses during onboarding tests.
-- **SC-008**: 100% of clinic deactivation operations revoke refresh sessions for users of the
+- **SC-009**: 100% of stored WhatsApp credential placeholders and token-like values are protected
+  at rest and never returned in repeatable responses.
+- **SC-010**: 100% of clinic deactivation operations revoke refresh sessions for users of the
   target clinic, and 100% of those users are unable to refresh sessions afterward.
-- **SC-009**: 100% of successful onboarding UI flows show the temporary password once and cannot
+- **SC-011**: 100% of successful onboarding UI flows show the temporary password once and cannot
   recover it after refresh, navigation away, dismissal, logout, or reopening the onboarding result.
-- **SC-010**: 100% of Clinic Admin attempts to create or elevate a SUPER_ADMIN are rejected before
+- **SC-012**: 100% of Clinic Admin attempts to create or elevate a SUPER_ADMIN are rejected before
   any user role changes.
+- **SC-013**: 95% of successful onboarding submissions show the SUPER_ADMIN a success or safe
+  failure outcome within 5 seconds under normal operating conditions.
 
 ## Assumptions
 
