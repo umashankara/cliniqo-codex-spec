@@ -3,6 +3,9 @@
 .env
 .env.*
 target/
+node_modules/
+dist/
+coverage/
 *.class
 *.jar
 .gradle/

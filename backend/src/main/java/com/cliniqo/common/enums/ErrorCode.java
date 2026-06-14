@@ -2,10 +2,13 @@ package com.cliniqo.common.enums;
 
 public enum ErrorCode {
     VALIDATION_ERROR,
+    AUTHENTICATION_REQUIRED,
     UNAUTHENTICATED,
     FORBIDDEN,
     NOT_FOUND,
     TENANCY_ERROR,
     CONFLICT,
+    CLINIC_INACTIVE,
+    IDEMPOTENCY_CONFLICT,
     INTERNAL_ERROR
 }

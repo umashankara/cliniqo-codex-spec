@@ -469,6 +469,7 @@ components:
         temporaryPassword:
           type: string
           description: Sensitive one-time temporary password returned only in the initial 201 onboarding response; never returned by repeatable reads or idempotent replay responses.
+          example: "uQ7mYp2!nK8sL4#z"
           x-sensitive: true
           x-one-time-secret: true
         forcePasswordReset:
@@ -508,5 +509,23 @@ components:
               minimum: 0
             alreadyInactive:
               type: boolean
+        meta:
+          $ref: '#/components/schemas/ApiMeta'
+    ClinicInactiveErrorExample:
+      type: object
+      description: Example typed error returned by /auth/refresh when a clinic-scoped user's clinic is inactive.
+      properties:
+        success:
+          type: boolean
+          enum: [false]
+        error:
+          type: object
+          properties:
+            code:
+              type: string
+              enum: [CLINIC_INACTIVE]
+            message:
+              type: string
+              example: Clinic is inactive
         meta:
           $ref: '#/components/schemas/ApiMeta'

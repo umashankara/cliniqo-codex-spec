@@ -94,6 +94,10 @@ onboarding UI can call `/api/v1/super-admin/onboarding/clinics` through the shar
 5. Confirm missing or invalid bootstrap placeholders fail safely in non-test environments.
 6. Sign in as SUPER_ADMIN and confirm the session has no clinic scope.
 
+Local/test default bootstrap credentials are intentionally non-live. Override
+`BOOTSTRAP_SUPER_ADMIN_EMAIL` and `BOOTSTRAP_SUPER_ADMIN_PASSWORD_HASH` per environment; never
+commit a real password or real production hash.
+
 ### 2. SUPER_ADMIN-Only Protection
 
 1. Sign in as a Clinic Admin.

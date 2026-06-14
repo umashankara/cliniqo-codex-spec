@@ -4,7 +4,10 @@ import com.cliniqo.auth.dto.AuthResponse;
 import com.cliniqo.auth.dto.AuthUserDto;
 import com.cliniqo.auth.entity.User;
 import com.cliniqo.auth.repository.UserRepository;
+import com.cliniqo.clinic.repository.ClinicRepository;
+import com.cliniqo.common.enums.ClinicStatus;
 import com.cliniqo.common.enums.UserStatus;
+import com.cliniqo.common.exception.ClinicInactiveException;
 import com.cliniqo.common.exception.UnauthorizedException;
 import com.cliniqo.common.security.JwtTokenProvider;
 import com.cliniqo.common.security.UserPrincipal;
@@ -18,6 +21,7 @@ public class AuthService {
     private final CredentialService credentialService;
     private final RefreshSessionService refreshSessionService;
     private final UserRepository userRepository;
+    private final ClinicRepository clinicRepository;
     private final JwtTokenProvider jwtTokenProvider;
     private final AuthAuditPublisher auditPublisher;
 
@@ -25,11 +29,13 @@ public class AuthService {
             CredentialService credentialService,
             RefreshSessionService refreshSessionService,
             UserRepository userRepository,
+            ClinicRepository clinicRepository,
             JwtTokenProvider jwtTokenProvider,
             AuthAuditPublisher auditPublisher) {
         this.credentialService = credentialService;
         this.refreshSessionService = refreshSessionService;
         this.userRepository = userRepository;
+        this.clinicRepository = clinicRepository;
         this.jwtTokenProvider = jwtTokenProvider;
         this.auditPublisher = auditPublisher;
     }
@@ -49,6 +55,13 @@ public class AuthService {
                 .orElseThrow(() -> new UnauthorizedException("Invalid refresh session"));
         if (user.getStatus() != UserStatus.ACTIVE) {
             throw new UnauthorizedException("Invalid refresh session");
+        }
+        if (user.getClinicId() != null) {
+            clinicRepository.findById(user.getClinicId()).ifPresent(clinic -> {
+                if (clinic.getStatus() == ClinicStatus.INACTIVE) {
+                    throw new ClinicInactiveException();
+                }
+            });
         }
         auditPublisher.refreshRotated(user);
         return response(user, rotated.next().rawToken());

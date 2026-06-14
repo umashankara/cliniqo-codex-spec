@@ -34,6 +34,15 @@ public class User extends AuditableRecord {
     @Column(name = "force_password_reset", nullable = false)
     private boolean forcePasswordReset;
 
+    @Column(name = "full_name", length = 160)
+    private String fullName;
+
+    @Column(length = 32)
+    private String phone;
+
+    @Column(name = "temporary_credential_issued_at")
+    private Instant temporaryCredentialIssuedAt;
+
     @Column(name = "deleted_at")
     private Instant deletedAt;
 
@@ -52,6 +61,12 @@ public class User extends AuditableRecord {
     public void setStatus(UserStatus status) { this.status = status; }
     public boolean isForcePasswordReset() { return forcePasswordReset; }
     public void setForcePasswordReset(boolean forcePasswordReset) { this.forcePasswordReset = forcePasswordReset; }
+    public String getFullName() { return fullName; }
+    public void setFullName(String fullName) { this.fullName = fullName; }
+    public String getPhone() { return phone; }
+    public void setPhone(String phone) { this.phone = phone; }
+    public Instant getTemporaryCredentialIssuedAt() { return temporaryCredentialIssuedAt; }
+    public void setTemporaryCredentialIssuedAt(Instant temporaryCredentialIssuedAt) { this.temporaryCredentialIssuedAt = temporaryCredentialIssuedAt; }
     public Instant getDeletedAt() { return deletedAt; }
     public UUID getDeletedBy() { return deletedBy; }
 }
