@@ -8,6 +8,13 @@
 
 **Input**: User description: "Implement F02 Super Admin Bootstrap and Clinic Onboarding for Cliniqo AI. Seed the first SUPER_ADMIN with Flyway, protect SUPER_ADMIN-only APIs, and create an atomic onboarding flow that creates clinic profile, unique slug, timezone, operating hours, default language, settings, reminder defaults, FAQ defaults, public website slug, WhatsApp metadata, first Clinic Admin, default permissions, temporary password with forced first-login reset, and audit events. Enforce unique slug, clinic admin email, WABA phone number, and phone_number_id. Deactivating a clinic must revoke its users' refresh tokens. Exclude full platform dashboard, appointment booking, public website pages, and real WhatsApp template registration. Refer feature.md for more details on F02, and keep the generated spec maintainable and easy to understand."
 
+## Clarifications
+
+### Session 2026-06-14
+
+- Q: How should F02 align bootstrap SUPER_ADMIN secrets and inactive-clinic refresh behavior with the corrected plan? → A: Flyway placeholders for bootstrap email/hash; dev/test non-live hash; inactive-clinic refresh returns `401 CLINIC_INACTIVE`.
+- Q: How should F02 handle clinic/public slug canonicalization? → A: Reject non-canonical slugs; backend accepts only lower-case URL-safe unique slugs exactly as submitted.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Bootstrap Platform Administration (Priority: P1)
@@ -113,7 +120,7 @@ revocation outcome.
    deactivates the clinic with a reason, **Then** the clinic becomes inactive and all refresh
    sessions for that clinic's users are revoked.
 2. **Given** a user from a deactivated clinic has an old refresh session, **When** the user attempts
-   to refresh authentication, **Then** the request is rejected with a safe authentication error.
+   to refresh authentication, **Then** the request is rejected with typed `401 CLINIC_INACTIVE`.
 3. **Given** clinic deactivation succeeds, **When** audit records are reviewed, **Then** they show
    the SUPER_ADMIN actor, target clinic, deactivation reason, and token revocation summary without
    exposing secrets.
@@ -151,9 +158,9 @@ or shown again after the one-time display is dismissed or left.
   guarantee that at least one active SUPER_ADMIN exists.
 - A non-SUPER_ADMIN user attempts onboarding, deactivation, or protected platform operations:
   reject before any business state or audit success event is created.
-- Onboarding includes a slug with uppercase letters, spaces, unsupported characters, or leading or
-  trailing separators: reject with clear validation or normalize only when the final reserved slug
-  remains unambiguous and unique.
+- Onboarding includes a clinic or public website slug with uppercase letters, spaces, unsupported
+  characters, or leading or trailing separators: reject with clear validation; backend does not
+  normalize submitted slug values before reservation.
 - Two SUPER_ADMIN users submit the same clinic slug, first-admin email, WhatsApp display number, or
   phone number identifier concurrently: only one succeeds and the other receives a safe conflict.
 - The same onboarding request is submitted more than once due to retry, timeout, or double click:
@@ -186,7 +193,8 @@ or shown again after the one-time display is dismissed or left.
 ### Functional Requirements
 
 - **FR-001**: System MUST provision one initial active SUPER_ADMIN account during first platform
-  setup when no equivalent account exists.
+  setup when no equivalent account exists, using configured Flyway placeholders for bootstrap email
+  and bcrypt password hash.
 - **FR-002**: System MUST keep at least one active SUPER_ADMIN available and MUST NOT let bootstrap
   behavior create duplicate platform operators.
 - **FR-003**: System MUST allow only authenticated SUPER_ADMIN users to create clinics, create the
@@ -200,8 +208,9 @@ or shown again after the one-time display is dismissed or left.
 - **FR-006**: System MUST create the clinic profile during onboarding with name, slug, address,
   country, timezone, default language, operating hours, primary phone, email, slot duration, booking
   windows, cancellation and reschedule cutoffs, and logo metadata when provided.
-- **FR-007**: System MUST enforce that clinic slugs are unique, URL-safe, lower-case, and reserved
-  for one clinic only.
+- **FR-007**: System MUST enforce that clinic slugs are unique, URL-safe, lower-case, accepted
+  exactly as submitted, and reserved for one clinic only; backend MUST reject non-canonical slug
+  values instead of normalizing them before reservation.
 - **FR-008**: System MUST create default clinic settings required for later scheduling,
   communication, language, booking-window, cutoff, and operational behavior.
 - **FR-009**: System MUST create default appointment reminder settings for the clinic, including
@@ -210,7 +219,8 @@ or shown again after the one-time display is dismissed or left.
 - **FR-010**: System MUST create default FAQ records for the clinic from platform-approved seed
   content suitable for later clinic customization.
 - **FR-011**: System MUST reserve a public website slug for the clinic and store whether public
-  website booking is enabled, without exposing public website pages in this feature.
+  website booking is enabled, without exposing public website pages in this feature; backend MUST
+  reject non-canonical public website slug values instead of normalizing them before reservation.
 - **FR-012**: System MUST capture WhatsApp business metadata for the clinic, including WABA
   identifier, phone number identifier, display phone number, template namespace, and secure token
   placeholders.
@@ -249,8 +259,9 @@ or shown again after the one-time display is dismissed or left.
   reason.
 - **FR-028**: System MUST revoke refresh sessions for all users associated with a clinic when that
   clinic is deactivated.
-- **FR-029**: System MUST reject session refresh for users whose clinic has been deactivated, even
-  when their previous refresh session was issued before deactivation.
+- **FR-029**: System MUST reject session refresh for users whose clinic has been deactivated with
+  typed `401 CLINIC_INACTIVE`, even when their previous refresh session was issued before
+  deactivation.
 - **FR-030**: System MUST provide a minimal SUPER_ADMIN onboarding UI for creating a clinic and
   first Clinic Admin, entering WhatsApp metadata, submitting onboarding, and viewing the one-time
   temporary credential after success.
@@ -334,7 +345,8 @@ or shown again after the one-time display is dismissed or left.
 ### Measurable Outcomes
 
 - **SC-001**: In a fresh setup, 100% of validation runs produce exactly one active bootstrap
-  SUPER_ADMIN capable of signing in, with no duplicate bootstrap account after repeated setup.
+  SUPER_ADMIN capable of signing in from configured Flyway bootstrap placeholders, with no
+  duplicate bootstrap account after repeated setup and no committed live password.
 - **SC-002**: 100% of non-SUPER_ADMIN attempts to create clinics or deactivate clinics are rejected
   before any clinic, user, settings, WhatsApp, permission, credential, refresh-session, or success
   audit state changes.
@@ -366,8 +378,9 @@ or shown again after the one-time display is dismissed or left.
 
 - F02 includes only the minimal SUPER_ADMIN onboarding UI described in `feature.md`; the broader
   SUPER_ADMIN dashboard and support console remain excluded.
-- The bootstrap SUPER_ADMIN identity and initial secret source will be defined during planning and
-  must avoid committing live credentials to the repository.
+- The bootstrap SUPER_ADMIN identity and initial secret source are configured through Flyway
+  placeholders for bootstrap email and bcrypt password hash. Test/dev may use a documented
+  non-live bcrypt hash, but no live password is committed to the repository.
 - Clinic Admin email is globally unique across retained user accounts for MVP simplicity and to
   avoid ambiguous login ownership.
 - Public website slug reservation is created now so later public website features can resolve a
