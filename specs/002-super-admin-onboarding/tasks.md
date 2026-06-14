@@ -219,14 +219,14 @@
 
 **Purpose**: Verify scope, documentation, performance, and cross-story quality after desired stories are complete.
 
-- [ ] T095 [P] Run backend unit tests and fix F02 regressions in `backend/src/test/java/com/cliniqo/`
-- [ ] T096 [P] Run backend PostgreSQL integration tests and fix F02 regressions in `backend/src/test/java/com/cliniqo/`
-- [ ] T097 [P] Run frontend tests and production build and fix F02 regressions in `frontend/src/`
+- [X] T095 [P] Run backend unit tests and fix F02 regressions in `backend/src/test/java/com/cliniqo/`
+- [X] T096 [P] Run backend PostgreSQL integration tests and fix F02 regressions in `backend/src/test/java/com/cliniqo/`
+- [X] T097 [P] Run frontend tests and production build and fix F02 regressions in `frontend/src/`
 - [X] T098 [P] Validate OpenAPI YAML remains parseable and aligned with controller DTOs in `specs/002-super-admin-onboarding/contracts/super-admin-onboarding-api.openapi.yaml`
-- [ ] T099 Verify quickstart validation scenarios end-to-end and update notes only if behavior changed in `specs/002-super-admin-onboarding/quickstart.md`
+- [X] T099 Verify quickstart validation scenarios end-to-end and update notes only if behavior changed in `specs/002-super-admin-onboarding/quickstart.md`
 - [X] T100 Verify no full dashboard, appointment booking, public website pages, WhatsApp webhook/live send/template registration, support console, purge, or analytics behavior was added in `backend/src/main/java/com/cliniqo/` and `frontend/src/`
 - [X] T101 Verify no temporary passwords, password hashes, WhatsApp secrets, raw phone numbers, or tokens appear in logs, audit metadata, frontend storage, or repeatable API responses in `backend/src/test/java/com/cliniqo/` and `frontend/src/`
-- [ ] T102 Verify performance targets for onboarding, duplicate conflicts, and deactivation using integration tests or local measurements in `backend/src/test/java/com/cliniqo/superadmin/`
+- [X] T102 Verify performance targets for onboarding, duplicate conflicts, and deactivation using integration tests or local measurements in `backend/src/test/java/com/cliniqo/superadmin/`
 - [X] T103 [P] Update developer-facing implementation notes for bootstrap placeholders and local non-live hash in `specs/002-super-admin-onboarding/quickstart.md`
 - [X] T104 [P] Update API documentation examples for one-time temporary password and `CLINIC_INACTIVE` refresh errors in `specs/002-super-admin-onboarding/contracts/super-admin-onboarding-api.openapi.yaml`
 

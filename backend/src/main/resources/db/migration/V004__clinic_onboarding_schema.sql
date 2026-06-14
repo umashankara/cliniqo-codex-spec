@@ -120,6 +120,8 @@ CREATE TABLE onboarding_request_records (
     safe_result_summary text NOT NULL DEFAULT '{}',
     created_at timestamptz NOT NULL DEFAULT now(),
     updated_at timestamptz NOT NULL DEFAULT now(),
+    created_by uuid,
+    updated_by uuid,
     completed_at timestamptz
 );
 
