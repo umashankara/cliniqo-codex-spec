@@ -46,9 +46,9 @@
 - [ ] T008 Add F02 role/status enum values needed for onboarding and first-login reset in `backend/src/main/java/com/cliniqo/common/enums/UserRole.java` and `backend/src/main/java/com/cliniqo/common/enums/UserStatus.java`
 - [ ] T009 [P] Implement AES-based string encryption utility for WhatsApp credential placeholders in `backend/src/main/java/com/cliniqo/common/crypto/CredentialEncryptor.java`
 - [ ] T010 [P] Add encryption configuration properties with required non-test validation in `backend/src/main/java/com/cliniqo/config/CredentialEncryptionProperties.java`
-- [ ] T011 [P] Add bootstrap SUPER_ADMIN configuration properties for Flyway placeholders in `backend/src/main/java/com/cliniqo/config/BootstrapSuperAdminProperties.java`
+- [ ] T011 [P] Add bootstrap SUPER_ADMIN configuration properties and non-test missing/invalid placeholder validation in `backend/src/main/java/com/cliniqo/config/BootstrapSuperAdminProperties.java`
 - [ ] T012 [P] Add slug validation utility that rejects non-canonical lower-case URL-safe slugs in `backend/src/main/java/com/cliniqo/common/validation/SlugValidator.java`
-- [ ] T013 [P] Add timezone and operating-hours validation helpers in `backend/src/main/java/com/cliniqo/clinic/service/ClinicOnboardingValidationService.java`
+- [ ] T013 [P] Add timezone, default-language, and operating-hours validation helpers in `backend/src/main/java/com/cliniqo/clinic/service/ClinicOnboardingValidationService.java`
 - [ ] T014 [P] Add idempotency key and request fingerprint value objects in `backend/src/main/java/com/cliniqo/common/idempotency/IdempotencyKey.java` and `backend/src/main/java/com/cliniqo/common/idempotency/RequestFingerprint.java`
 - [ ] T015 Add shared idempotency repository support in `backend/src/main/java/com/cliniqo/superadmin/repository/OnboardingRequestRecordRepository.java`
 - [ ] T016 Add shared idempotency service for onboarding and deactivation retries in `backend/src/main/java/com/cliniqo/superadmin/service/SuperAdminIdempotencyService.java`
@@ -69,7 +69,7 @@
 
 ### Tests for User Story 1
 
-- [ ] T021 [P] [US1] Add Flyway bootstrap placeholder integration test in `backend/src/test/java/com/cliniqo/superadmin/SuperAdminBootstrapFlywayIT.java`
+- [ ] T021 [P] [US1] Add Flyway bootstrap placeholder integration test for configured email/hash plus missing/invalid non-test placeholders in `backend/src/test/java/com/cliniqo/superadmin/SuperAdminBootstrapFlywayIT.java`
 - [ ] T022 [P] [US1] Add bootstrap idempotency test for repeated migrations in `backend/src/test/java/com/cliniqo/superadmin/SuperAdminBootstrapIdempotencyIT.java`
 - [ ] T023 [P] [US1] Add SUPER_ADMIN no-clinic-scope session test in `backend/src/test/java/com/cliniqo/superadmin/SuperAdminSessionScopeIT.java`
 - [ ] T024 [P] [US1] Add SUPER_ADMIN-only API authorization contract test in `backend/src/test/java/com/cliniqo/superadmin/SuperAdminAuthorizationIT.java`
@@ -97,7 +97,7 @@
 
 ### Tests for User Story 2
 
-- [ ] T033 [P] [US2] Add OpenAPI contract test for `POST /api/v1/super-admin/onboarding/clinics` success shape in `backend/src/test/java/com/cliniqo/superadmin/ClinicOnboardingContractTest.java`
+- [ ] T033 [P] [US2] Add OpenAPI contract test for `POST /api/v1/super-admin/onboarding/clinics` success shape, including sensitive one-time `temporaryPassword` response semantics, in `backend/src/test/java/com/cliniqo/superadmin/ClinicOnboardingContractTest.java`
 - [ ] T034 [P] [US2] Add atomic successful onboarding integration test in `backend/src/test/java/com/cliniqo/superadmin/ClinicOnboardingSuccessIT.java`
 - [ ] T035 [P] [US2] Add onboarding rollback integration test for child-write and audit-write failures in `backend/src/test/java/com/cliniqo/superadmin/ClinicOnboardingRollbackIT.java`
 - [ ] T036 [P] [US2] Add one-time temporary password response test in `backend/src/test/java/com/cliniqo/superadmin/TemporaryCredentialOneTimeIT.java`
@@ -166,7 +166,7 @@
 - [ ] T067 [P] [US4] Add OpenAPI contract test for `POST /api/v1/super-admin/clinics/{clinicId}/deactivate` in `backend/src/test/java/com/cliniqo/superadmin/ClinicDeactivationContractTest.java`
 - [ ] T068 [P] [US4] Add clinic deactivation integration test in `backend/src/test/java/com/cliniqo/superadmin/ClinicDeactivationIT.java`
 - [ ] T069 [P] [US4] Add clinic refresh-session revocation test in `backend/src/test/java/com/cliniqo/auth/ClinicDeactivationRefreshRevocationIT.java`
-- [ ] T070 [P] [US4] Add inactive-clinic refresh typed error test in `backend/src/test/java/com/cliniqo/auth/InactiveClinicRefreshIT.java`
+- [ ] T070 [P] [US4] Add `/auth/refresh` contract test for F01 success envelope reuse and inactive-clinic typed `401 CLINIC_INACTIVE` behavior in `backend/src/test/java/com/cliniqo/auth/InactiveClinicRefreshIT.java`
 - [ ] T071 [P] [US4] Add repeat-safe deactivation idempotency test in `backend/src/test/java/com/cliniqo/superadmin/ClinicDeactivationIdempotencyIT.java`
 - [ ] T072 [P] [US4] Add clinic deactivation audit redaction test in `backend/src/test/java/com/cliniqo/audit/ClinicDeactivationAuditIT.java`
 
@@ -192,7 +192,7 @@
 ### Tests for User Story 5
 
 - [ ] T079 [P] [US5] Add route guard tests for unauthenticated, non-SUPER_ADMIN, and SUPER_ADMIN users in `frontend/src/features/superadmin/onboarding/OnboardingRouteGuard.test.tsx`
-- [ ] T080 [P] [US5] Add onboarding form validation tests for required fields, slug format, ranges, and operating hours in `frontend/src/features/superadmin/onboarding/OnboardingForm.test.tsx`
+- [ ] T080 [P] [US5] Add onboarding form validation tests for required fields, slug format, timezone/default language, ranges, and operating hours in `frontend/src/features/superadmin/onboarding/OnboardingForm.test.tsx`
 - [ ] T081 [P] [US5] Add API client tests for onboarding success and duplicate-field errors in `frontend/src/services/superAdminOnboardingApi.test.ts`
 - [ ] T082 [P] [US5] Add one-time credential display and no browser persistence tests in `frontend/src/features/superadmin/onboarding/OneTimeCredentialPanel.test.tsx`
 - [ ] T083 [P] [US5] Add safe unexpected-error/request-ID state tests in `frontend/src/features/superadmin/onboarding/OnboardingErrorState.test.tsx`
@@ -320,4 +320,3 @@ Task: "T090 [P] [US5] Create public website, WhatsApp metadata, and first-admin 
 1. Complete US5 minimal onboarding UI.
 2. Run backend and frontend validation from `quickstart.md`.
 3. Run final scope guardrails to confirm excluded features remain absent.
-
