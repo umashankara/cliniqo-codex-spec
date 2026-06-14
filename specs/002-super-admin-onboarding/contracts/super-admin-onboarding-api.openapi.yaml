@@ -1,0 +1,462 @@
+openapi: 3.0.3
+info:
+  title: Cliniqo F02 Super Admin Onboarding API
+  version: 0.1.0
+  description: Contracts for SUPER_ADMIN bootstrap validation, clinic onboarding, one-time credentials, and clinic deactivation.
+servers:
+  - url: /api/v1
+paths:
+  /super-admin/bootstrap/status:
+    get:
+      summary: Verify that at least one active SUPER_ADMIN is available
+      operationId: getBootstrapStatus
+      tags: [SuperAdminOnboarding]
+      parameters:
+        - $ref: '#/components/parameters/RequestId'
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Bootstrap status returned for an authenticated SUPER_ADMIN
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BootstrapStatusEnvelope'
+        '401':
+          $ref: '#/components/responses/TypedError'
+        '403':
+          $ref: '#/components/responses/TypedError'
+  /super-admin/onboarding/clinics:
+    post:
+      summary: Atomically onboard a clinic and first Clinic Admin
+      operationId: onboardClinic
+      tags: [SuperAdminOnboarding]
+      parameters:
+        - $ref: '#/components/parameters/RequestId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ClinicOnboardingRequest'
+      responses:
+        '201':
+          description: Clinic onboarded; temporary password is present only in this success response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClinicOnboardingEnvelope'
+        '400':
+          $ref: '#/components/responses/TypedError'
+        '401':
+          $ref: '#/components/responses/TypedError'
+        '403':
+          $ref: '#/components/responses/TypedError'
+        '409':
+          description: Duplicate slug, admin email, WABA display phone number, phone number ID, or idempotency conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+  /super-admin/clinics/{clinicId}/deactivate:
+    post:
+      summary: Deactivate a clinic and revoke refresh sessions for its users
+      operationId: deactivateClinic
+      tags: [SuperAdminOnboarding]
+      parameters:
+        - $ref: '#/components/parameters/RequestId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - name: clinicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DeactivateClinicRequest'
+      responses:
+        '200':
+          description: Clinic deactivated or repeat-safe deactivation result returned
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeactivateClinicEnvelope'
+        '400':
+          $ref: '#/components/responses/TypedError'
+        '401':
+          $ref: '#/components/responses/TypedError'
+        '403':
+          $ref: '#/components/responses/TypedError'
+        '404':
+          $ref: '#/components/responses/TypedError'
+        '409':
+          $ref: '#/components/responses/TypedError'
+  /auth/refresh:
+    post:
+      summary: Refresh session; F02 requires rejection when the user's clinic is inactive
+      operationId: refreshWithClinicStatusCheck
+      tags: [Auth]
+      parameters:
+        - $ref: '#/components/parameters/RequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [refreshToken]
+              additionalProperties: false
+              properties:
+                refreshToken:
+                  type: string
+      responses:
+        '200':
+          description: Session refreshed for an active user and active clinic
+        '401':
+          description: Refresh token invalid, revoked, expired, reused, or clinic inactive
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  parameters:
+    RequestId:
+      name: X-Request-Id
+      in: header
+      required: false
+      schema:
+        type: string
+      description: Client supplied request ID; server generates one if absent.
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: false
+      schema:
+        type: string
+        minLength: 8
+        maxLength: 128
+      description: Optional key used to make retries safe. The server may derive a safe request fingerprint when absent.
+  responses:
+    TypedError:
+      description: Typed safe error response
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+  schemas:
+    ApiMeta:
+      type: object
+      required: [requestId]
+      properties:
+        requestId:
+          type: string
+    ErrorDetail:
+      type: object
+      required: [code, message]
+      properties:
+        code:
+          type: string
+          enum:
+            - VALIDATION_ERROR
+            - AUTHENTICATION_REQUIRED
+            - FORBIDDEN
+            - NOT_FOUND
+            - CONFLICT
+            - CLINIC_INACTIVE
+            - IDEMPOTENCY_CONFLICT
+            - INTERNAL_ERROR
+        message:
+          type: string
+        fieldErrors:
+          type: object
+          additionalProperties:
+            type: string
+    ErrorEnvelope:
+      type: object
+      required: [success, error, meta]
+      properties:
+        success:
+          type: boolean
+          enum: [false]
+        error:
+          $ref: '#/components/schemas/ErrorDetail'
+        meta:
+          $ref: '#/components/schemas/ApiMeta'
+    BootstrapStatusEnvelope:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success:
+          type: boolean
+          enum: [true]
+        data:
+          type: object
+          required: [activeSuperAdminExists]
+          properties:
+            activeSuperAdminExists:
+              type: boolean
+            activeSuperAdminCount:
+              type: integer
+              minimum: 1
+        meta:
+          $ref: '#/components/schemas/ApiMeta'
+    ClinicOnboardingRequest:
+      type: object
+      required: [clinic, settings, operatingHours, reminders, publicWebsite, whatsapp, firstAdmin]
+      additionalProperties: false
+      properties:
+        clinic:
+          $ref: '#/components/schemas/ClinicProfileInput'
+        settings:
+          $ref: '#/components/schemas/ClinicSettingsInput'
+        operatingHours:
+          type: array
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/OperatingHourInput'
+        reminders:
+          $ref: '#/components/schemas/ReminderDefaultsInput'
+        publicWebsite:
+          $ref: '#/components/schemas/PublicWebsiteInput'
+        whatsapp:
+          $ref: '#/components/schemas/WhatsAppMetadataInput'
+        firstAdmin:
+          $ref: '#/components/schemas/FirstClinicAdminInput'
+    ClinicProfileInput:
+      type: object
+      required: [name, slug, country, timezone, defaultLanguage, primaryPhone, email]
+      additionalProperties: false
+      properties:
+        name:
+          type: string
+          minLength: 2
+          maxLength: 160
+        slug:
+          type: string
+          pattern: '^[a-z0-9]+(?:-[a-z0-9]+)*$'
+          minLength: 3
+          maxLength: 80
+        address:
+          type: string
+          maxLength: 500
+        country:
+          type: string
+          minLength: 2
+          maxLength: 80
+        timezone:
+          type: string
+          example: Asia/Kolkata
+        defaultLanguage:
+          type: string
+          minLength: 2
+          maxLength: 16
+        primaryPhone:
+          type: string
+          minLength: 8
+          maxLength: 32
+        email:
+          type: string
+          format: email
+        logoMetadata:
+          type: object
+          additionalProperties: false
+          properties:
+            fileName:
+              type: string
+            contentType:
+              type: string
+            sizeBytes:
+              type: integer
+              minimum: 0
+    ClinicSettingsInput:
+      type: object
+      required: [slotDurationMinutes, maxAdvanceBookingDays, minBookingNoticeMinutes, cancellationCutoffMinutes, rescheduleCutoffMinutes]
+      additionalProperties: false
+      properties:
+        slotDurationMinutes:
+          type: integer
+          enum: [15, 20, 30, 45, 60]
+        maxAdvanceBookingDays:
+          type: integer
+          minimum: 7
+          maximum: 90
+        minBookingNoticeMinutes:
+          type: integer
+          minimum: 15
+          maximum: 1440
+        cancellationCutoffMinutes:
+          type: integer
+          minimum: 0
+          maximum: 1440
+        rescheduleCutoffMinutes:
+          type: integer
+          minimum: 0
+          maximum: 1440
+    OperatingHourInput:
+      type: object
+      required: [dayOfWeek, closed]
+      additionalProperties: false
+      properties:
+        dayOfWeek:
+          type: string
+          enum: [MONDAY, TUESDAY, WEDNESDAY, THURSDAY, FRIDAY, SATURDAY, SUNDAY]
+        closed:
+          type: boolean
+        openTime:
+          type: string
+          pattern: '^([01][0-9]|2[0-3]):[0-5][0-9]$'
+        closeTime:
+          type: string
+          pattern: '^([01][0-9]|2[0-3]):[0-5][0-9]$'
+    ReminderDefaultsInput:
+      type: object
+      additionalProperties: false
+      properties:
+        morningOfEnabled:
+          type: boolean
+          default: true
+        morningOfTimeLocal:
+          type: string
+          pattern: '^([01][0-9]|2[0-3]):[0-5][0-9]$'
+          default: '08:00'
+        beforeAppointmentEnabled:
+          type: boolean
+          default: true
+        beforeAppointmentOffsetMinutes:
+          type: integer
+          default: 120
+          minimum: 15
+          maximum: 1440
+    PublicWebsiteInput:
+      type: object
+      required: [slug, enabled]
+      additionalProperties: false
+      properties:
+        slug:
+          type: string
+          pattern: '^[a-z0-9]+(?:-[a-z0-9]+)*$'
+        enabled:
+          type: boolean
+    WhatsAppMetadataInput:
+      type: object
+      required: [wabaId, phoneNumberId, displayPhoneNumber, templateNamespace]
+      additionalProperties: false
+      properties:
+        wabaId:
+          type: string
+          maxLength: 120
+        phoneNumberId:
+          type: string
+          maxLength: 120
+        displayPhoneNumber:
+          type: string
+          maxLength: 32
+        templateNamespace:
+          type: string
+          maxLength: 120
+        accessTokenPlaceholder:
+          type: string
+          writeOnly: true
+        appSecretPlaceholder:
+          type: string
+          writeOnly: true
+    FirstClinicAdminInput:
+      type: object
+      required: [fullName, email]
+      additionalProperties: false
+      properties:
+        fullName:
+          type: string
+          minLength: 2
+          maxLength: 160
+        email:
+          type: string
+          format: email
+        phone:
+          type: string
+          maxLength: 32
+    ClinicOnboardingEnvelope:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success:
+          type: boolean
+          enum: [true]
+        data:
+          $ref: '#/components/schemas/ClinicOnboardingResult'
+        meta:
+          $ref: '#/components/schemas/ApiMeta'
+    ClinicOnboardingResult:
+      type: object
+      required: [clinicId, clinicSlug, firstAdminUserId, firstAdminEmail, temporaryPassword, forcePasswordReset, oneTimeCredential]
+      properties:
+        clinicId:
+          type: string
+          format: uuid
+        clinicSlug:
+          type: string
+        publicWebsiteSlug:
+          type: string
+        firstAdminUserId:
+          type: string
+          format: uuid
+        firstAdminEmail:
+          type: string
+          format: email
+        temporaryPassword:
+          type: string
+          writeOnly: true
+          description: Returned only once in the initial success response.
+        forcePasswordReset:
+          type: boolean
+          enum: [true]
+        oneTimeCredential:
+          type: boolean
+          enum: [true]
+    DeactivateClinicRequest:
+      type: object
+      required: [reason]
+      additionalProperties: false
+      properties:
+        reason:
+          type: string
+          minLength: 3
+          maxLength: 500
+    DeactivateClinicEnvelope:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success:
+          type: boolean
+          enum: [true]
+        data:
+          type: object
+          required: [clinicId, status, revokedRefreshSessionCount]
+          properties:
+            clinicId:
+              type: string
+              format: uuid
+            status:
+              type: string
+              enum: [INACTIVE]
+            revokedRefreshSessionCount:
+              type: integer
+              minimum: 0
+            alreadyInactive:
+              type: boolean
+        meta:
+          $ref: '#/components/schemas/ApiMeta'
